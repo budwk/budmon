@@ -1,0 +1,10 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+pydantic==2.10.4
+APScheduler==3.10.4
+requests==2.32.3
+aliyun-python-sdk-core==2.16.0
+aliyun-python-sdk-dysmsapi==2.1.2

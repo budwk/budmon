@@ -1,0 +1,24 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: budmon-backend
+    environment:
+      BUDMON_DATA_DIR: /data
+      BUDMON_SECRET_KEY: change-this-secret
+    volumes:
+      - budmon-data:/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: budmon-frontend
+    depends_on:
+      - backend
+    ports:
+      - "9977:80"
+    restart: unless-stopped
+
+volumes:
+  budmon-data:
