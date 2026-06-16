@@ -34,6 +34,16 @@ def _mail_targets(lines: Iterable[str]) -> list[str]:
     return [line for line in lines if "@" in line]
 
 
+def _configured_targets(monitor_cfg: dict) -> tuple[list[str], list[str]]:
+    sms_targets = _lines(monitor_cfg.get("sms_targets", ""))
+    email_targets = _lines(monitor_cfg.get("email_targets", ""))
+    if sms_targets or email_targets:
+        return sms_targets, email_targets
+
+    legacy_targets = _lines(monitor_cfg.get("notify_targets", ""))
+    return _sms_targets(legacy_targets), _mail_targets(legacy_targets)
+
+
 def _probe(url: str) -> tuple[bool, int | None, str | None]:
     try:
         response = requests.get(url, timeout=10, allow_redirects=True)
@@ -86,17 +96,24 @@ def _notify(event_type: str, params: dict[str, str | int]) -> None:
     monitor_cfg = merge_defaults(get_setting("monitor", {}), defaults["monitor"])
     sms_cfg = merge_defaults(get_setting("sms", {}), defaults["sms"])
     methods = set(monitor_cfg.get("notify_methods", []))
-    targets = _lines(monitor_cfg.get("notify_targets", ""))
-    logger.info("准备通知 event=%s methods=%s target_count=%s params=%s", event_type, sorted(methods), len(targets), params)
+    phones, mails = _configured_targets(monitor_cfg)
+    logger.info(
+        "准备通知 event=%s methods=%s sms_target_count=%s email_target_count=%s params=%s",
+        event_type,
+        sorted(methods),
+        len(phones),
+        len(mails),
+        params,
+    )
     if not methods:
         logger.warning("未配置通知方式，跳过通知 event=%s", event_type)
         return
-    if not targets:
+    selected_target_count = (len(phones) if "sms" in methods else 0) + (len(mails) if "email" in methods else 0)
+    if selected_target_count == 0:
         logger.warning("未配置通知目标，跳过通知 event=%s", event_type)
         return
     errors: list[str] = []
     if "sms" in methods:
-        phones = _sms_targets(targets)
         logger.info("短信通知目标数量=%s event=%s", len(phones), event_type)
         for phone in phones:
             try:
@@ -105,7 +122,6 @@ def _notify(event_type: str, params: dict[str, str | int]) -> None:
                 logger.exception("短信通知失败 phone=%s event=%s", phone, event_type)
                 errors.append(f"短信 {phone}: {exc}")
     if "email" in methods:
-        mails = _mail_targets(targets)
         logger.info("邮件通知目标数量=%s event=%s", len(mails), event_type)
         if mails:
             try:

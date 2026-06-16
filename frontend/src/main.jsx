@@ -318,9 +318,18 @@ function SettingsPanel() {
                 <Form.Item name="notify_methods" label="告警通知方式">
                   <Checkbox.Group options={[{ label: "短信", value: "sms" }, { label: "邮箱", value: "email" }]} />
                 </Form.Item>
-                <Form.Item name="notify_targets" label="通知目标">
-                  <Input.TextArea rows={6} placeholder={"短信每行输入手机号\n邮箱每行输入邮箱地址"} />
-                </Form.Item>
+                <Row gutter={16}>
+                  <Col xs={24} md={12}>
+                    <Form.Item name="sms_targets" label="短信通知目标">
+                      <Input.TextArea rows={6} placeholder="每行输入一个手机号" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Form.Item name="email_targets" label="邮箱通知目标">
+                      <Input.TextArea rows={6} placeholder="每行输入一个邮箱地址" />
+                    </Form.Item>
+                  </Col>
+                </Row>
                 <Button type="primary" htmlType="submit" icon={<Save size={16} />}>保存策略</Button>
               </Form>
             </Card>

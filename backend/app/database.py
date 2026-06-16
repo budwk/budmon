@@ -150,6 +150,8 @@ def default_settings() -> dict[str, Any]:
             "cert_expire_days": 5,
             "notify_methods": ["sms"],
             "notify_targets": "",
+            "sms_targets": "",
+            "email_targets": "",
         },
         "sms": {
             "provider": "aliyun",

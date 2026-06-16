@@ -65,6 +65,23 @@ def _public_row(row) -> dict:
     return data
 
 
+def _lines(value: str) -> list[str]:
+    return [line.strip() for line in value.splitlines() if line.strip()]
+
+
+def _normalize_monitor_settings(settings: dict) -> dict:
+    if settings.get("sms_targets") or settings.get("email_targets"):
+        return settings
+
+    legacy_targets = _lines(settings.get("notify_targets", ""))
+    if not legacy_targets:
+        return settings
+
+    settings["sms_targets"] = "\n".join(line for line in legacy_targets if "@" not in line)
+    settings["email_targets"] = "\n".join(line for line in legacy_targets if "@" in line)
+    return settings
+
+
 class InstallIn(BaseModel):
     username: str = Field(min_length=3, max_length=32)
     password: str = Field(min_length=6, max_length=128)
@@ -92,6 +109,8 @@ class MonitorSettingsIn(BaseModel):
     cert_expire_days: int = Field(default=5, ge=1, le=365)
     notify_methods: list[str] = Field(default_factory=list)
     notify_targets: str = ""
+    sms_targets: str = ""
+    email_targets: str = ""
 
 
 class SmsSettingsIn(BaseModel):
@@ -262,7 +281,7 @@ def clear_logs(_: Annotated[str, Depends(require_user)]):
 def get_settings(_: Annotated[str, Depends(require_user)]):
     defaults = default_settings()
     return {
-        "monitor": merge_defaults(get_setting("monitor", {}), defaults["monitor"]),
+        "monitor": _normalize_monitor_settings(merge_defaults(get_setting("monitor", {}), defaults["monitor"])),
         "sms": merge_defaults(get_setting("sms", {}), defaults["sms"]),
         "email": merge_defaults(get_setting("email", {}), defaults["email"]),
     }
@@ -273,7 +292,18 @@ def save_monitor_settings(payload: MonitorSettingsIn, _: Annotated[str, Depends(
     illegal = set(payload.notify_methods) - {"sms", "email"}
     if illegal:
         raise HTTPException(400, "通知方式只能选择短信或邮箱")
-    set_setting("monitor", payload.model_dump())
+    sms_targets = _lines(payload.sms_targets)
+    email_targets = _lines(payload.email_targets)
+    if any("@" in target for target in sms_targets):
+        raise HTTPException(400, "短信通知目标只能填写手机号")
+    if any("@" not in target for target in email_targets):
+        raise HTTPException(400, "邮箱通知目标只能填写邮箱地址")
+
+    data = payload.model_dump()
+    data["sms_targets"] = "\n".join(sms_targets)
+    data["email_targets"] = "\n".join(email_targets)
+    data["notify_targets"] = ""
+    set_setting("monitor", data)
     reload_scheduler()
     return {"ok": True}
 
