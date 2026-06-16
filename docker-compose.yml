@@ -1,6 +1,6 @@
 services:
   backend:
-    image: budmon-backend
+    image: wizzer/budmon-backend
     container_name: budmon-backend
     environment:
       BUDMON_DATA_DIR: /data
@@ -10,7 +10,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: budmon-frontend
+    image: wizzer/budmon-frontend
     container_name: budmon-frontend
     depends_on:
       - backend
