@@ -52,55 +52,71 @@ SQLite 数据库会保存在 Docker volume `budmon-data` 中。JWT 密钥默认�
 docker login
 ```
 
-在项目根目录构建并推送后端、前端镜像（线上旧版本为 `1.0.1`，本次发布 `1.0.2`）：
+在项目根目录构建并推送后端、前端镜像：
 
 ```bash
-bash scripts/publish-dockerhub.sh -u wizzer -v 1.0.2
+bash scripts/publish-dockerhub.sh -u wizzer -v 1.0.3
 ```
 
-脚本未传 `-v` 时读取仓库根目录 `VERSION`（当前 `1.0.2`）。默认构建 `linux/amd64` 与 `linux/arm64`，并推送：
+脚本未传 `-v` 时读取仓库根目录 `VERSION`（当前 `1.0.3`）。默认构建 `linux/amd64` 与 `linux/arm64`，并推送：
 
 ```text
-wizzer/budmon-backend:1.0.2
+wizzer/budmon-backend:1.0.3
 wizzer/budmon-backend:latest
-wizzer/budmon-frontend:1.0.2
+wizzer/budmon-frontend:1.0.3
 wizzer/budmon-frontend:latest
 ```
 
 只构建单架构：
 
 ```bash
-scripts/publish-dockerhub.sh -u wizzer -v 1.0.2 -p linux/amd64
+scripts/publish-dockerhub.sh -u wizzer -v 1.0.3 -p linux/amd64
 ```
 
 不推送 `latest`：
 
 ```bash
-scripts/publish-dockerhub.sh -u wizzer -v 1.0.2 -n
+scripts/publish-dockerhub.sh -u wizzer -v 1.0.3 -n
 ```
 
 可通过环境变量自定义仓库名：
 
 ```bash
-BACKEND_IMAGE=budmon-api FRONTEND_IMAGE=budmon-web scripts/publish-dockerhub.sh -u wizzer -v 1.0.2
+BACKEND_IMAGE=budmon-api FRONTEND_IMAGE=budmon-web scripts/publish-dockerhub.sh -u wizzer -v 1.0.3
 ```
 
-## 线上从 1.0.1 升级至 1.0.2
+## 生产环境配置文件 
 
-镜像推送成功后，在服务器原有 Compose 项目目录更新 `docker-compose.yml`，两个镜像分别固定为 `wizzer/budmon-backend:1.0.2` 与 `wizzer/budmon-frontend:1.0.2`。保留原来的项目名、数据卷、端口及密钥配置。
+docker-compose.yml
 
-本次包含多用户数据库迁移，升级前备份数据库。以下命令先拉取新镜像，再短暂停止后端，将旧数据库目录复制出来：
+```yaml
+services:
+  backend:
+    image: wizzer/budmon-backend:1.0.3
+    container_name: budmon-backend
+    environment:
+      BUDMON_DATA_DIR: /data
+      BUDMON_SECRET_KEY: change-this-secret
+      APNS_KEY_ID: ""
+      APNS_TEAM_ID: ""
+      APNS_BUNDLE_ID: "com.budwk.app.budmon"
+      # 指向新的独立目录
+      APNS_KEY_PATH: "/data/AuthKey.p8"
+    volumes:
+      - budmon-data:/data
+    restart: unless-stopped
 
-```bash
-docker compose pull
-mkdir -p backups
-backup_dir="backups/budmon-1.0.1-$(date +%Y%m%d-%H%M%S)"
-docker compose stop backend
-docker compose cp backend:/data "$backup_dir"
-# 确认上一条备份成功后再继续；若备份失败，先执行 docker compose start backend 恢复旧服务。
-docker compose up -d
-docker compose ps
-docker compose logs --tail=100 backend
+  frontend:
+    image: wizzer/budmon-frontend:1.0.3
+    container_name: budmon-frontend
+    depends_on:
+      - backend
+    ports:
+      - "9977:80"
+    restart: unless-stopped
+
+volumes:
+  budmon-data:
 ```
 
 不要执行 `docker compose down -v`，避免删除持久化数据。旧账号与监测目标会迁移保留，升级后需要重新登录。若需回滚至 `1.0.1`，应同时恢复升级前备份的数据与旧镜像，不要仅切换镜像版本。
@@ -138,15 +154,7 @@ npm run dev
 发布脚本默认使用本机 HTTP 代理 `http://127.0.0.1:7890`：
 
 ```bash
-bash scripts/publish-dockerhub.sh -u wizzer -v 1.0.2
+bash scripts/publish-dockerhub.sh -u wizzer -v 1.0.3
 # 显式指定同一代理：
-bash scripts/publish-dockerhub.sh -u wizzer -v 1.0.2 -x http://127.0.0.1:7890
+bash scripts/publish-dockerhub.sh -u wizzer -v 1.0.3 -x http://127.0.0.1:7890
 ```
-
-脚本让宿主机 CLI 使用该地址，容器内自动改用 `http://host.docker.internal:7890`，同时设置独立 BuildKit builder 的代理（基础镜像元数据、拉取与推送）及构建参数（pip/npm）。不会删除已有 builder，代理参数改变时使用不同 builder。
-
-请启动本机代理；如果容器访问仍被拒绝，检查代理软件允许局域网连接/监听地址，并仅允许可信网络访问该端口。Docker Desktop 通过 `host.docker.internal` 访问宿主机，不能把容器内的 `127.0.0.1` 当作 Mac 地址。参考 [Docker Desktop 网络文档](https://docs.docker.com/desktop/features/networking/networking-how-tos/) 与 [BuildKit 容器驱动配置](https://docs.docker.com/build/builders/drivers/docker-container/)。
-
-新 builder 第一次启动需由 Docker Engine 拉取 `moby/buildkit`，这一步不受 builder 内的环境变量控制；若此处失败，还需将 Docker Desktop 自身的 HTTP/HTTPS 代理配置为 `http://127.0.0.1:7890` 并应用设置。代理认证访问 Docker Hub 的网络与容器依赖安装是不同阶段。
-
-其他构建机可用 `-x http://构建容器可访问的代理地址:端口` 覆盖；原生 Linux 不保证存在 `host.docker.internal`，应使用容器可访问的宿主机 IP。`-d` 或 `BUDMON_BUILD_PROXY=''` 仅关闭脚本显式代理设置，Docker 全局已有的代理仍可能生效。
