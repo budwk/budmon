@@ -1,0 +1,77 @@
+name: BudMon
+options:
+  bundleIdPrefix: com.budmon
+  deploymentTarget:
+    iOS: '17.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    DEVELOPMENT_TEAM: ''
+    TARGETED_DEVICE_FAMILY: '1,2'
+    MARKETING_VERSION: '2.0.0'
+    CURRENT_PROJECT_VERSION: '1'
+  configs:
+    Debug:
+      APNS_ENVIRONMENT: sandbox
+      APS_ENVIRONMENT: development
+    Release:
+      APNS_ENVIRONMENT: production
+      APS_ENVIRONMENT: production
+targets:
+  BudMon:
+    type: application
+    platform: iOS
+    sources: [BudMon]
+    info:
+      path: BudMon/Info.plist
+      properties:
+        CFBundleDisplayName: BudMon
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        NSLocalNetworkUsageDescription: 连接你在局域网部署的 BudMon 服务器。
+        APNSEnvironment: $(APNS_ENVIRONMENT)
+    entitlements:
+      path: BudMon/BudMon.entitlements
+      properties:
+        aps-environment: $(APS_ENVIRONMENT)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.budmon.ios
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  BudMonTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [BudMonTests]
+    dependencies:
+      - target: BudMon
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+  BudMonUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [BudMonUITests]
+    dependencies:
+      - target: BudMon
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  BudMon:
+    build:
+      targets:
+        BudMon: all
+        BudMonTests: [test]
+    test:
+      targets: [BudMonTests]
+  BudMonUI:
+    build:
+      targets:
+        BudMon: all
+        BudMonUITests: [test]
+    test:
+      targets: [BudMonUITests]

@@ -5,7 +5,15 @@ services:
     container_name: budmon-backend
     environment:
       BUDMON_DATA_DIR: /data
-      BUDMON_SECRET_KEY: change-this-secret
+      BUDMON_LOG_MAX_PER_TARGET: ${BUDMON_LOG_MAX_PER_TARGET:-1000}
+      BUDMON_LOG_RETENTION_DAYS: ${BUDMON_LOG_RETENTION_DAYS:-7}
+      # Backend is only reachable through the frontend on this private Docker network.
+      FORWARDED_ALLOW_IPS: "*"
+      BUDMON_SECRET_KEY: ${BUDMON_SECRET_KEY:-}
+      APNS_KEY_ID: ${APNS_KEY_ID:-}
+      APNS_TEAM_ID: ${APNS_TEAM_ID:-}
+      APNS_BUNDLE_ID: ${APNS_BUNDLE_ID:-com.budmon.ios}
+      APNS_KEY_PATH: ${APNS_KEY_PATH:-}
     volumes:
       - budmon-data:/data
     restart: unless-stopped

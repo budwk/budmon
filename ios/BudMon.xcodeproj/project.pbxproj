@@ -1,0 +1,534 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		28309CD85A8154D9B84B2521 /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F227B6BC76DA1246EBC4756 /* Views.swift */; };
+		2D0175D697D9075D975A43D0 /* BudMonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A8CF821F4B6B7812590C2F /* BudMonTests.swift */; };
+		2E8ED981E510C6EC0E813F4E /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = E426E4420D014F29BC5C6F55 /* API.swift */; };
+		626D6C2F040EA6E3314057BD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 481C40B38967C2F26A657A9B /* Assets.xcassets */; };
+		9374F603A04105CFD58388AA /* FlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76AF12D5C1CB18D7B70ED07E /* FlowTests.swift */; };
+		BAAE32653D0151CD42776D95 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 219537F3ACF05EBA9562DCA9 /* Models.swift */; };
+		BC5CEF7D3EB789468C8E3328 /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3EE4BFE9F11A226F30AD162 /* Store.swift */; };
+		EE15924B3AEF07EF83DC3D7D /* BudMonApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68D00F0D7780556BCF2C4AA2 /* BudMonApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		EBCCB98B16A2A928ACD4B918 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2F9D744E2A4AEBC9C5332E48 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 194D688A9B87191F3A7CE272;
+			remoteInfo = BudMon;
+		};
+		F2BD6D02309CDB48515339DE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2F9D744E2A4AEBC9C5332E48 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 194D688A9B87191F3A7CE272;
+			remoteInfo = BudMon;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		219537F3ACF05EBA9562DCA9 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		481C40B38967C2F26A657A9B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		68D00F0D7780556BCF2C4AA2 /* BudMonApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudMonApp.swift; sourceTree = "<group>"; };
+		6F227B6BC76DA1246EBC4756 /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
+		76AF12D5C1CB18D7B70ED07E /* FlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowTests.swift; sourceTree = "<group>"; };
+		7F81FE6322DDD4570EAE52F6 /* BudMonTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BudMonTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		95DF15C00250AB66E2CFDE40 /* BudMonUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BudMonUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B3EE4BFE9F11A226F30AD162 /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
+		BC7285524B49AFDC3A2BCC0B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		E426E4420D014F29BC5C6F55 /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
+		F3A8CF821F4B6B7812590C2F /* BudMonTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BudMonTests.swift; sourceTree = "<group>"; };
+		FA5C9C05FD58BC9A8FB0C562 /* BudMon.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BudMon.entitlements; sourceTree = "<group>"; };
+		FF8FF8D45470CC4C4003C332 /* BudMon.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BudMon.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		2D4599EF054BDC4813DD99D7 /* BudMon */ = {
+			isa = PBXGroup;
+			children = (
+				E426E4420D014F29BC5C6F55 /* API.swift */,
+				481C40B38967C2F26A657A9B /* Assets.xcassets */,
+				FA5C9C05FD58BC9A8FB0C562 /* BudMon.entitlements */,
+				68D00F0D7780556BCF2C4AA2 /* BudMonApp.swift */,
+				BC7285524B49AFDC3A2BCC0B /* Info.plist */,
+				219537F3ACF05EBA9562DCA9 /* Models.swift */,
+				B3EE4BFE9F11A226F30AD162 /* Store.swift */,
+				6F227B6BC76DA1246EBC4756 /* Views.swift */,
+			);
+			path = BudMon;
+			sourceTree = "<group>";
+		};
+		6168FCA9DEB3A3DC630F782F = {
+			isa = PBXGroup;
+			children = (
+				2D4599EF054BDC4813DD99D7 /* BudMon */,
+				CF9EF00A55939CA1B406C00B /* BudMonTests */,
+				7834C8D7FCA798BFD646F74E /* BudMonUITests */,
+				DE7D9E231B1F2D1E75C0896D /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		7834C8D7FCA798BFD646F74E /* BudMonUITests */ = {
+			isa = PBXGroup;
+			children = (
+				76AF12D5C1CB18D7B70ED07E /* FlowTests.swift */,
+			);
+			path = BudMonUITests;
+			sourceTree = "<group>";
+		};
+		CF9EF00A55939CA1B406C00B /* BudMonTests */ = {
+			isa = PBXGroup;
+			children = (
+				F3A8CF821F4B6B7812590C2F /* BudMonTests.swift */,
+			);
+			path = BudMonTests;
+			sourceTree = "<group>";
+		};
+		DE7D9E231B1F2D1E75C0896D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FF8FF8D45470CC4C4003C332 /* BudMon.app */,
+				7F81FE6322DDD4570EAE52F6 /* BudMonTests.xctest */,
+				95DF15C00250AB66E2CFDE40 /* BudMonUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		194D688A9B87191F3A7CE272 /* BudMon */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D62908DF4914EB65BB95DB36 /* Build configuration list for PBXNativeTarget "BudMon" */;
+			buildPhases = (
+				D64096E7CB92F5A7877F6005 /* Sources */,
+				8919BCC5C8204D59FE851852 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BudMon;
+			packageProductDependencies = (
+			);
+			productName = BudMon;
+			productReference = FF8FF8D45470CC4C4003C332 /* BudMon.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F25EA33C65A7F84DC6035A7E /* BudMonUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D06FD93A39962D39CCCFF484 /* Build configuration list for PBXNativeTarget "BudMonUITests" */;
+			buildPhases = (
+				80E6E0C9597C795A1CFA3A5A /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A74C24C938E61AD93F5CE082 /* PBXTargetDependency */,
+			);
+			name = BudMonUITests;
+			packageProductDependencies = (
+			);
+			productName = BudMonUITests;
+			productReference = 95DF15C00250AB66E2CFDE40 /* BudMonUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		F5C937DB5EAE089730265885 /* BudMonTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4BC26AE2992042E65B298BD0 /* Build configuration list for PBXNativeTarget "BudMonTests" */;
+			buildPhases = (
+				99B6625A55E5E4734B22D80C /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E849FD9FFE618CA22EFA8D33 /* PBXTargetDependency */,
+			);
+			name = BudMonTests;
+			packageProductDependencies = (
+			);
+			productName = BudMonTests;
+			productReference = 7F81FE6322DDD4570EAE52F6 /* BudMonTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		2F9D744E2A4AEBC9C5332E48 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					F25EA33C65A7F84DC6035A7E = {
+						DevelopmentTeam = "";
+						TestTargetID = 194D688A9B87191F3A7CE272;
+					};
+					F5C937DB5EAE089730265885 = {
+						DevelopmentTeam = "";
+					};
+				};
+			};
+			buildConfigurationList = 7E7604BA22B0C9BA2E9A1F68 /* Build configuration list for PBXProject "BudMon" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 6168FCA9DEB3A3DC630F782F;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = DE7D9E231B1F2D1E75C0896D /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				194D688A9B87191F3A7CE272 /* BudMon */,
+				F5C937DB5EAE089730265885 /* BudMonTests */,
+				F25EA33C65A7F84DC6035A7E /* BudMonUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8919BCC5C8204D59FE851852 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				626D6C2F040EA6E3314057BD /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		80E6E0C9597C795A1CFA3A5A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9374F603A04105CFD58388AA /* FlowTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		99B6625A55E5E4734B22D80C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2D0175D697D9075D975A43D0 /* BudMonTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D64096E7CB92F5A7877F6005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2E8ED981E510C6EC0E813F4E /* API.swift in Sources */,
+				EE15924B3AEF07EF83DC3D7D /* BudMonApp.swift in Sources */,
+				BAAE32653D0151CD42776D95 /* Models.swift in Sources */,
+				BC5CEF7D3EB789468C8E3328 /* Store.swift in Sources */,
+				28309CD85A8154D9B84B2521 /* Views.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A74C24C938E61AD93F5CE082 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 194D688A9B87191F3A7CE272 /* BudMon */;
+			targetProxy = EBCCB98B16A2A928ACD4B918 /* PBXContainerItemProxy */;
+		};
+		E849FD9FFE618CA22EFA8D33 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 194D688A9B87191F3A7CE272 /* BudMon */;
+			targetProxy = F2BD6D02309CDB48515339DE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2F83E5A92A8FFCFD672089E4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.budmon.BudMonUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = BudMon;
+			};
+			name = Release;
+		};
+		3170ADB14254F5EB510DA4F4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APNS_ENVIRONMENT = production;
+				APS_ENVIRONMENT = production;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 2.0.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		43588FC6B858140673299068 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.budmon.BudMonUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = BudMon;
+			};
+			name = Debug;
+		};
+		9EF6E50A067A6D58FE4769F5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BudMon/BudMon.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = DPBBH6KM6G;
+				INFOPLIST_FILE = BudMon/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.budwk.app.budmon;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A3A3AEECEFD5C6DA6CAA4558 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BudMon/BudMon.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = DPBBH6KM6G;
+				INFOPLIST_FILE = BudMon/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.budwk.app.budmon;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		BAEC7D5E3F4290E91C112C0B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.budmon.BudMonTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BudMon.app/BudMon";
+			};
+			name = Release;
+		};
+		F00F91478785CB3707B8C6E6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				APNS_ENVIRONMENT = sandbox;
+				APS_ENVIRONMENT = development;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 2.0.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F09C3A32D51DF05D946D519A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.budmon.BudMonTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BudMon.app/BudMon";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4BC26AE2992042E65B298BD0 /* Build configuration list for PBXNativeTarget "BudMonTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F09C3A32D51DF05D946D519A /* Debug */,
+				BAEC7D5E3F4290E91C112C0B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7E7604BA22B0C9BA2E9A1F68 /* Build configuration list for PBXProject "BudMon" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F00F91478785CB3707B8C6E6 /* Debug */,
+				3170ADB14254F5EB510DA4F4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D06FD93A39962D39CCCFF484 /* Build configuration list for PBXNativeTarget "BudMonUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				43588FC6B858140673299068 /* Debug */,
+				2F83E5A92A8FFCFD672089E4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D62908DF4914EB65BB95DB36 /* Build configuration list for PBXNativeTarget "BudMon" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9EF6E50A067A6D58FE4769F5 /* Debug */,
+				A3A3AEECEFD5C6DA6CAA4558 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 2F9D744E2A4AEBC9C5332E48 /* Project object */;
+}

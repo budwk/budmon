@@ -47,12 +47,13 @@ const { Title, Text } = Typography;
 
 function AuthScreen({ installed, onAuthed }) {
   const [loading, setLoading] = useState(false);
-  const title = installed ? "管理员登录" : "初始化安装";
+  const [register, setRegister] = useState(false);
+  const title = installed ? (register ? "注册账号" : "账号登录") : "初始化安装";
 
   async function submit(values) {
     setLoading(true);
     try {
-      const url = installed ? "/auth/login" : "/install";
+      const url = installed ? (register ? "/auth/register" : "/auth/login") : "/install";
       const { data } = await api.post(url, values);
       localStorage.setItem("budmon_token", data.token);
       onAuthed();
@@ -72,16 +73,17 @@ function AuthScreen({ installed, onAuthed }) {
             <Text type="secondary">{title}</Text>
           </div>
           <Form layout="vertical" onFinish={submit}>
-            <Form.Item name="username" label="管理员账号" rules={[{ required: true }]}>
+            <Form.Item name="username" label="用户名" rules={[{ required: true }]}>
               <Input size="large" autoComplete="username" />
             </Form.Item>
-            <Form.Item name="password" label="密码" rules={[{ required: true, min: 6 }]}>
+            <Form.Item name="password" label="密码" rules={[{ required: true, min: installed && !register ? 1 : 8 }]}>
               <Input.Password size="large" autoComplete={installed ? "current-password" : "new-password"} />
             </Form.Item>
             <Button type="primary" htmlType="submit" size="large" block loading={loading}>
-              {installed ? "登录" : "完成初始化"}
+              {installed ? (register ? "注册" : "登录") : "完成初始化"}
             </Button>
           </Form>
+          {installed && <Button type="link" onClick={() => setRegister(!register)}>{register ? "已有账号？去登录" : "创建新账号"}</Button>}
         </Space>
       </Card>
     </div>
@@ -481,7 +483,7 @@ function PasswordPanel() {
         <Form.Item name="old_password" label="原密码" rules={[{ required: true }]}>
           <Input.Password />
         </Form.Item>
-        <Form.Item name="new_password" label="新密码" rules={[{ required: true, min: 6 }]}>
+        <Form.Item name="new_password" label="新密码" rules={[{ required: true, min: 8 }]}>
           <Input.Password />
         </Form.Item>
         <Button type="primary" htmlType="submit" icon={<KeyRound size={16} />}>重置密码</Button>
@@ -490,15 +492,55 @@ function PasswordPanel() {
   );
 }
 
+function UsersPanel() {
+  const [rows, setRows] = useState([]);
+  const [page, setPage] = useState(0);
+  const [editing, setEditing] = useState(null);
+  const [form] = Form.useForm();
+  async function load() {
+    try { setRows((await api.get(`/admin/users?offset=${page * 100}`)).data); }
+    catch (error) { message.error(error.response?.data?.detail || "加载用户失败"); }
+  }
+  useEffect(() => { load(); }, [page]);
+  async function save(values) {
+    try {
+      await api.put(`/admin/users/${editing.id}`, { ...values, quota_override: values.quota_override ?? null, plan_expires_at: values.plan_expires_at || null });
+      setEditing(null); message.success("用户权益已更新"); load();
+    } catch (error) { message.error(error.response?.data?.detail || "更新失败，请检查到期时间格式"); }
+  }
+  return <Card title="用户与监测配额">
+    <Alert type="info" showIcon message="套餐额度由服务端强制校验。到期自动回落免费版；已有目标保留，超额时无法新增。在线支付尚未开放。" className="mb16" />
+    <Table rowKey="id" dataSource={rows} pagination={false} columns={[
+      {title:"账号", dataIndex:"username"}, {title:"角色",dataIndex:"role"},
+      {title:"套餐",dataIndex:"plan_name"},
+      {title:"监测数量",render:(_,r)=>`${r.target_used} / ${r.target_limit}`},
+      {title:"状态",render:(_,r)=><Tag color={r.disabled ? "red":"green"}>{r.disabled ? "停用":"正常"}</Tag>},
+      {title:"操作",render:(_,r)=><Button onClick={()=>{setEditing(r);form.setFieldsValue({...r, plan_expires_at:r.plan_expires_at ? r.plan_expires_at.replace(" ","T")+"Z" : ""});}}>管理权益</Button>}
+    ]} />
+    <Space className="mb16"><Button disabled={page === 0} onClick={()=>setPage(page-1)}>上一页</Button><Text>第 {page+1} 页</Text><Button disabled={rows.length < 100} onClick={()=>setPage(page+1)}>下一页</Button></Space>
+    <Modal title={`管理 ${editing?.username || ""}`} open={!!editing} onCancel={()=>setEditing(null)} footer={null}>
+      <Form form={form} layout="vertical" onFinish={save}>
+        <Form.Item name="plan_id" label="套餐"><Select options={[{value:"free",label:"免费版 · 5 个"},{value:"pro",label:"专业版 · 30 个"}]} /></Form.Item>
+        <Form.Item name="quota_override" label="自定义数量（留空使用套餐）"><InputNumber min={0} max={10000} /></Form.Item>
+        <Form.Item name="plan_expires_at" label="套餐到期时间（含时区，留空长期）"><Input placeholder="2027-01-01T00:00:00+08:00" /></Form.Item>
+        <Form.Item name="disabled" label="停用账号" valuePropName="checked"><Switch /></Form.Item>
+        <Button htmlType="submit" type="primary">保存权益</Button>
+      </Form>
+    </Modal>
+  </Card>;
+}
+
 function Shell({ onLogout }) {
   const [selected, setSelected] = useState("dashboard");
+  const [profile, setProfile] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  useEffect(() => { api.get("/me").then(({data}) => setProfile(data)).catch(() => {}); }, [refreshKey]);
   const items = useMemo(() => [
     { key: "dashboard", icon: <Activity size={18} />, label: "运行状态" },
     { key: "targets", icon: <Bell size={18} />, label: "监控目标" },
-    { key: "settings", icon: <Settings size={18} />, label: "系统配置" },
+    ...(profile?.role === "admin" ? [{ key: "settings", icon: <Settings size={18} />, label: "系统配置" }, {key:"users", icon:<KeyRound size={18}/>, label:"用户与配额"}] : []),
     { key: "password", icon: <KeyRound size={18} />, label: "重置密码" },
-  ], []);
+  ], [profile]);
 
   async function runNow() {
     const hide = message.loading("正在检测...", 0);
@@ -522,6 +564,7 @@ function Shell({ onLogout }) {
       <Layout>
         <Header className="topbar">
           <Space>
+            {profile && <Text>{profile.username} · {profile.plan_name} · {profile.target_used}/{profile.target_limit}</Text>}
             <Button icon={<Play size={16} />} onClick={runNow}>立即检测</Button>
             <Button icon={<RefreshCw size={16} />} onClick={() => setRefreshKey((v) => v + 1)}>刷新</Button>
             <Button icon={<LogOut size={16} />} onClick={onLogout}>退出</Button>
@@ -530,7 +573,8 @@ function Shell({ onLogout }) {
         <Content className="content">
           {selected === "dashboard" && <Dashboard refreshKey={refreshKey} onChanged={() => setRefreshKey((v) => v + 1)} />}
           {selected === "targets" && <Targets onChanged={() => setRefreshKey((v) => v + 1)} />}
-          {selected === "settings" && <SettingsPanel />}
+          {selected === "settings" && profile?.role === "admin" && <SettingsPanel />}
+          {selected === "users" && profile?.role === "admin" && <UsersPanel />}
           {selected === "password" && <PasswordPanel />}
         </Content>
       </Layout>
@@ -556,7 +600,7 @@ function App() {
 
   if (booting) return <div className="center"><Spin /></div>;
   if (!authed) return <AuthScreen installed={installed} onAuthed={() => { setAuthed(true); boot(); }} />;
-  return <Shell onLogout={() => { localStorage.removeItem("budmon_token"); setAuthed(false); }} />;
+  return <Shell onLogout={async () => { try { await api.post("/auth/logout"); localStorage.removeItem("budmon_token"); setAuthed(false); } catch { message.error("退出失败，请重试"); } }} />;
 }
 
 createRoot(document.getElementById("root")).render(

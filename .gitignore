@@ -141,3 +141,18 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Python / Xcode / local secrets
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.sqlite3*
+*.p8
+DerivedData/
+*.xcuserstate
+xcuserdata/
+secrets/
+.local-data/
+.jwt-secret
+.DS_Store

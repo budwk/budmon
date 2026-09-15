@@ -9,13 +9,16 @@ import logging
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from typing import Iterable
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
 
-import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from .database import default_settings, get_db, get_setting, merge_defaults
 from .sms import send_sms
+from .network import probe, resolve_public
+from .push import enqueue, drain_push
+from .retention import prune_history, prune_target_logs
 
 _scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
 _lock = threading.Lock()
@@ -44,13 +47,7 @@ def _configured_targets(monitor_cfg: dict) -> tuple[list[str], list[str]]:
     return _sms_targets(legacy_targets), _mail_targets(legacy_targets)
 
 
-def _probe(url: str) -> tuple[bool, int | None, str | None]:
-    try:
-        response = requests.get(url, timeout=10, allow_redirects=True)
-        return response.status_code < 500, response.status_code, None
-    except requests.RequestException as exc:
-        return False, None, str(exc)
-
+_probe = probe
 
 def _render(template: str, params: dict[str, str | int]) -> str:
     rendered = template
@@ -91,7 +88,13 @@ def _send_email(addresses: list[str], event_type: str, params: dict[str, str | i
         smtp.send_message(msg)
 
 
-def _notify(event_type: str, params: dict[str, str | int]) -> None:
+def _notify(event_type: str, params: dict[str, str | int], target) -> None:
+    enqueue(target, event_type, params)
+    # Legacy global SMS/email recipients only receive the administrator's targets.
+    with get_db() as db:
+        owner = db.execute("SELECT role FROM users WHERE id=?", (target["owner_id"],)).fetchone()
+    if not owner or owner["role"] != "admin" or event_type not in {"service_down", "cert_expiring"}:
+        return
     defaults = default_settings()
     monitor_cfg = merge_defaults(get_setting("monitor", {}), defaults["monitor"])
     sms_cfg = merge_defaults(get_setting("sms", {}), defaults["sms"])
@@ -131,7 +134,7 @@ def _notify(event_type: str, params: dict[str, str | int]) -> None:
                 logger.exception("邮件通知失败 event=%s", event_type)
                 errors.append(f"邮件: {exc}")
     if errors:
-        raise RuntimeError("; ".join(errors))
+        logger.error("Legacy notification failure: %s", "; ".join(errors))
 
 
 def _certificate_days(url: str) -> tuple[int | None, str | None, str | None]:
@@ -139,8 +142,9 @@ def _certificate_days(url: str) -> tuple[int | None, str | None, str | None]:
     if parsed.scheme != "https" or not parsed.hostname:
         return None, None, None
     try:
+        parsed, address, port = resolve_public(url)
         context = ssl.create_default_context()
-        with socket.create_connection((parsed.hostname, parsed.port or 443), timeout=10) as sock:
+        with socket.create_connection((address, port), timeout=10) as sock:
             with context.wrap_socket(sock, server_hostname=parsed.hostname) as ssock:
                 cert = ssock.getpeercert()
         expires = datetime.strptime(cert["notAfter"], "%b %d %H:%M:%S %Y %Z").replace(tzinfo=timezone.utc)
@@ -173,6 +177,9 @@ def _check_service(target, retry_delay: int) -> None:
         )
 
     with get_db() as db:
+        live = db.execute("SELECT url,enabled FROM targets WHERE id=?",(target["id"],)).fetchone()
+        if not live or live["url"] != target["url"] or not live["enabled"]:
+            return
         old_count = int(target["failure_count"] or 0)
         failure_count = 0 if ok else old_count + 1
         status = "up" if ok else "down"
@@ -209,11 +216,13 @@ def _check_service(target, retry_delay: int) -> None:
         int(target["failure_count"] or 0),
         failure_count,
     )
+    if ok and target["service_alert_failure_count"]:
+        _notify("service_recovered", {"name": target["name"]}, target)
     alert_sent_count = int(target["service_alert_failure_count"] or 0)
     if not ok and failure_count >= 2 and alert_sent_count == 0:
         logger.warning("服务连续失败达到阈值，触发告警 target_id=%s name=%s", target["id"], target["name"])
         try:
-            _notify("service_down", {"name": target["name"]})
+            _notify("service_down", {"name": target["name"]}, target)
             with get_db() as db:
                 db.execute(
                     "UPDATE targets SET service_alert_failure_count = ? WHERE id = ?",
@@ -230,6 +239,8 @@ def _check_service(target, retry_delay: int) -> None:
 
 
 def _check_certificate(target, cert_expire_days: int, today: str) -> None:
+    if not target["url"].startswith("https://"):
+        return
     logger.info("开始证书检测 target_id=%s name=%s url=%s", target["id"], target["name"], target["url"])
     cert_days, cert_expires_at, cert_error = _certificate_days(target["url"])
     logger.info(
@@ -240,6 +251,9 @@ def _check_certificate(target, cert_expire_days: int, today: str) -> None:
         cert_error,
     )
     with get_db() as db:
+        live = db.execute("SELECT url,enabled FROM targets WHERE id=?",(target["id"],)).fetchone()
+        if not live or live["url"] != target["url"] or not live["enabled"]:
+            return
         db.execute(
             """
             UPDATE targets
@@ -257,7 +271,7 @@ def _check_certificate(target, cert_expire_days: int, today: str) -> None:
             (target["id"], int(cert_error is None), cert_days, cert_error),
         )
 
-    if cert_days is None or cert_days > cert_expire_days or target["cert_alert_date"] == today:
+    if (not cert_error and (cert_days is None or cert_days > cert_expire_days)) or target["cert_alert_date"] == today:
         logger.info(
             "证书告警未触发 target_id=%s days=%s threshold=%s already_alerted_today=%s",
             target["id"],
@@ -274,7 +288,7 @@ def _check_certificate(target, cert_expire_days: int, today: str) -> None:
         cert_expire_days,
     )
     try:
-        _notify("cert_expiring", {"name": target["name"], "day": cert_days})
+        _notify("cert_invalid" if cert_error else "cert_expiring", {"name": target["name"], "day": cert_days}, target)
         with get_db() as db:
             db.execute("UPDATE targets SET cert_alert_date = ? WHERE id = ?", (today, target["id"]))
         logger.info("证书告警发送完成 target_id=%s", target["id"])
@@ -287,19 +301,19 @@ def _check_certificate(target, cert_expire_days: int, today: str) -> None:
             )
 
 
-def run_check_once() -> None:
+def run_check_once(owner_id=None) -> bool:
     if not _lock.acquire(blocking=False):
         logger.warning("上一轮监控尚未结束，本轮跳过")
-        return
+        return False
     started_at = datetime.now().isoformat(timespec="seconds")
     logger.info("监控任务开始 started_at=%s", started_at)
     try:
         monitor_cfg = merge_defaults(get_setting("monitor", {}), default_settings()["monitor"])
         retry_delay = int(monitor_cfg.get("retry_delay_seconds", 5))
         cert_expire_days = int(monitor_cfg.get("cert_expire_days", 5))
-        today = datetime.now().date().isoformat()
+        today = datetime.now(timezone.utc).date().isoformat()
         with get_db() as db:
-            targets = db.execute("SELECT * FROM targets WHERE enabled = 1").fetchall()
+            targets = db.execute("SELECT t.* FROM targets t JOIN users u ON u.id=t.owner_id WHERE t.enabled=1 AND u.disabled=0 AND (? IS NULL OR owner_id=?)", (owner_id,owner_id)).fetchall()
 
         logger.info(
             "监控任务配置 interval=%s retry_delay=%s cert_expire_days=%s enabled_targets=%s notify_methods=%s",
@@ -309,20 +323,29 @@ def run_check_once() -> None:
             len(targets),
             monitor_cfg.get("notify_methods"),
         )
-        for target in targets:
-            _check_service(target, retry_delay)
-            _check_certificate(target, cert_expire_days, today)
+        def check(target):
+            try:
+                _check_service(target, retry_delay)
+                _check_certificate(target, cert_expire_days, today)
+                prune_target_logs(target["id"])
+            except Exception:
+                logger.exception("目标检测失败 target_id=%s", target["id"])
+        with ThreadPoolExecutor(max_workers=8, thread_name_prefix="probe") as pool:
+            list(pool.map(check, targets))
         logger.info("监控任务结束 started_at=%s target_count=%s", started_at, len(targets))
     except Exception:
         logger.exception("监控任务异常")
     finally:
         _lock.release()
+    return True
 
 
 def start_scheduler() -> None:
     if not _scheduler.running:
         _scheduler.start()
         logger.info("监控调度器已启动")
+    _scheduler.add_job(drain_push, "interval", seconds=5, id="push-outbox", replace_existing=True, max_instances=1)
+    _scheduler.add_job(prune_history, "interval", minutes=5, id="history-retention", replace_existing=True, max_instances=1, next_run_time=datetime.now())
     reload_scheduler()
 
 

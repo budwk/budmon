@@ -8,3 +8,4 @@ APScheduler==3.10.4
 requests==2.32.3
 aliyun-python-sdk-core==2.16.0
 aliyun-python-sdk-dysmsapi==2.1.2
+httpx[http2]==0.28.1
