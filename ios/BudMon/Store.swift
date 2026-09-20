@@ -129,7 +129,7 @@ import UserNotifications
                 purchaseMessage = "服务端尚未启用内购，请稍后重试。"
                 return
             }
-            guard context.product_id == "budmon_number" else { throw APIError(message: "商品配置不一致") }
+            guard context.product_id == "com.budwk.app.budmon.1" else { throw APIError(message: "商品配置不一致") }
             let products = try await Product.products(for: [context.product_id])
             guard authenticated, profile?.id == accountID else { return }
             guard let product = products.first, product.type == .consumable else {
@@ -168,7 +168,7 @@ import UserNotifications
         guard case .verified(let transaction) = result else {
             throw APIError(message: "Apple 交易验证未通过")
         }
-        guard transaction.productID == "budmon_number" else { return }
+        guard transaction.productID == "com.budwk.app.budmon.1" else { return }
         guard authenticated else {
             throw APIError(message: "请登录官方服务器的购买账号后重试")
         }

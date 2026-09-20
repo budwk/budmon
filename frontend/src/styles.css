@@ -34,6 +34,35 @@ body {
   box-shadow: 0 22px 70px rgba(31, 41, 55, 0.12);
 }
 
+.captcha-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 10px;
+}
+
+.captcha-image {
+  width: 150px;
+  height: 42px;
+  padding: 0;
+  overflow: hidden;
+  color: #667085;
+  background: #eef4fb;
+  border: 1px solid #d9d9d9;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.captcha-image:hover {
+  border-color: #1677ff;
+}
+
+.captcha-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .app-shell {
   min-height: 100vh;
 }
@@ -354,5 +383,13 @@ body {
 
   .user-search {
     width: 100%;
+  }
+
+  .captcha-row {
+    grid-template-columns: minmax(0, 1fr) 132px;
+  }
+
+  .captcha-image {
+    width: 132px;
   }
 }

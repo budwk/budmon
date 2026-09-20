@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from appstoreserverlibrary.models.Environment import Environment
 from appstoreserverlibrary.signed_data_verifier import SignedDataVerifier, VerificationException, VerificationStatus
 
-PRODUCT_ID = "budmon_number"
+PRODUCT_ID = "com.budwk.app.budmon.1"
 
 
 def configured():

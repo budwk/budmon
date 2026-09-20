@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 private let canvas = Color(red:0.035, green:0.06, blue:0.105)
 private let panel = Color(red:0.075, green:0.11, blue:0.16)
@@ -177,6 +178,8 @@ struct TargetEditor: View {
     @State private var enabled = true
     @State private var saving = false
     @State private var error: String?
+    @State private var showingNotificationPrompt = false
+    @State private var canRequestNotifications = false
     var body: some View {
         NavigationStack {
             Form {
@@ -196,6 +199,25 @@ struct TargetEditor: View {
                     ToolbarItem(placement:.confirmationAction) { Button(saving ? "保存中…" : "保存") { Task { await save() } }.disabled(saving || name.trimmingCharacters(in:.whitespaces).isEmpty) }
                 }
                 .onAppear { if let target { name = target.name; url = target.url; enabled = target.enabled == 1 } }
+                .task {
+                    guard target == nil else { return }
+                    let settings = await UNUserNotificationCenter.current().notificationSettings()
+                    guard !Task.isCancelled else { return }
+                    canRequestNotifications = settings.authorizationStatus == .notDetermined
+                    showingNotificationPrompt = canRequestNotifications || settings.authorizationStatus == .denied || settings.alertSetting == .disabled
+                }
+                .alert("开启系统通知", isPresented:$showingNotificationPrompt) {
+                    if canRequestNotifications {
+                        Button("开启通知") { Task { await store.enablePush() } }
+                    } else {
+                        Button("前往设置") {
+                            if let url = URL(string:UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                        }
+                    }
+                    Button("暂不开启", role:.cancel) { }
+                } message: {
+                    Text("开启通知后，可及时收到网站异常和证书到期提醒。暂不开启也可继续新增监测目标。")
+                }
         }
     }
     private func save() async {
@@ -394,6 +416,7 @@ struct AccountView: View {
                     LabeledContent("永久已购名额", value: "\(profile.purchased_quota ?? 0) 个")
                     Text("每份永久增加 1 个监测名额，可重复购买，累计数量不限。名额绑定当前 BudMon 账号，换设备后登录同一账号即可使用。").font(.caption).foregroundStyle(.secondary)
                     if let product = store.purchaseProduct {
+                        Text(product.displayName).font(.headline)
                         Button(store.purchasing ? "正在处理购买…" : "购买 1 个名额 · \(product.displayPrice)") {
                             Task { await store.purchaseSlot() }
                         }.disabled(store.purchasing || !store.purchaseAvailable)
@@ -433,7 +456,7 @@ struct AccountView: View {
                 Section {
                     Button(signingOut ? "正在退出…" : "退出登录",role:.destructive) { signingOut = true; Task { await store.logout(); signingOut = false } }.disabled(signingOut)
                     if profile.role != "admin" { Button("删除账号",role:.destructive) { deleting = true } }
-                } footer: { Text("BudMon 2.0 · 为每一次稳定在线") }
+                } footer: { Text("BudMon · 为每一次稳定在线") }
             } else { Button("重新加载账号") { Task { await store.reload() } } }
         }.navigationTitle("我的账户")
             .confirmationDialog("永久删除账号、全部监测目标及历史记录？此操作不可恢复。",isPresented:$deleting,titleVisibility:.visible) {

@@ -627,6 +627,19 @@ def _init_postgres() -> None:
                 created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS captcha_challenges (
+                id TEXT PRIMARY KEY,
+                answer_hash TEXT NOT NULL,
+                expires_at BIGINT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS login_attempts (
+                username TEXT PRIMARY KEY,
+                failure_count INTEGER NOT NULL DEFAULT 0,
+                locked_until BIGINT NOT NULL DEFAULT 0,
+                updated_at BIGINT NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS rate_limits (
                 key TEXT PRIMARY KEY,
                 "window" BIGINT NOT NULL,
@@ -796,6 +809,13 @@ def _migrate_sqlite(db) -> None:
             id INTEGER PRIMARY KEY, actor_id INTEGER NOT NULL,
             subject_id INTEGER NOT NULL, action TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS captcha_challenges (
+            id TEXT PRIMARY KEY, answer_hash TEXT NOT NULL, expires_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS login_attempts (
+            username TEXT PRIMARY KEY, failure_count INTEGER NOT NULL DEFAULT 0,
+            locked_until INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL
         );
         CREATE TABLE IF NOT EXISTS rate_limits (
             key TEXT PRIMARY KEY, "window" INTEGER NOT NULL, count INTEGER NOT NULL

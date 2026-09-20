@@ -82,11 +82,11 @@ docker compose -f docker-compose.local.yml -f compose.apns.yml up -d --build
 
 ### StoreKit 2 内购上线配置
 
-1. 在 App Store Connect 的当前 App 下创建**消耗型**内购，产品 ID 必须为 `budmon_number`，中国大陆价格设为 **¥1.00**，补全展示名称、说明和审核截图并提交审核。App 内以 `Product.displayPrice` 展示实际商店价格，不伪造价格。
-2. 确认 App 的 Bundle ID 为 `com.budwk.app.budmon`（当前 Xcode 工程），服务器 `/etc/budmon/budmon.env` 设置同值 `APPLE_BUNDLE_ID`，以及 App Store Connect 中的数字 `APPLE_APP_ID`。Xcode 工程与 xcodegen 源配置已同步该 Bundle ID；请核对自己 App Store Connect 中的实际值。
+1. 在 App Store Connect 的当前 App 下创建**消耗型**内购，产品名为「1个永久检测目标」，产品 ID 必须为 `com.budwk.app.budmon.1`，中国大陆价格设为 **¥1.00**，补全展示名称、说明和审核截图并提交审核。App 内以 `Product.displayPrice` 展示实际商店价格，不伪造价格。
+2. 确认 App 的 Bundle ID 为 `com.budwk.app.budmon`（当前 Xcode 工程），服务器 `/data/budmon/.env` 设置同值 `APPLE_BUNDLE_ID`，以及 App Store Connect 中的数字 `APPLE_APP_ID`。当前 systemd 服务读取 `/data/budmon/.env`；旧路径 `/etc/budmon/budmon.env` 仅在新配置文件不存在时由部署脚本迁移。Xcode 工程与 xcodegen 源配置已同步该 Bundle ID；请核对自己 App Store Connect 中的实际值。
 3. 生产与沙盒 App Store Server Notifications **V2** 地址填 `https://budmon.budwk.com/api/iap/notifications`。服务端验证 Apple 根证书签名链、在线证书状态、Bundle ID、环境、商品类型、商品 ID 和账号 token，只接收 Apple 签名的数量。
 4. 沙盒/TestFlight/App Review 期间设置 `APPLE_ALLOW_SANDBOX=1`，使用专用测试账号；否则仅接受生产交易。沙盒入账会在后台标记 Sandbox。生产销售无需 App Store Server API 私钥，本实现验证 StoreKit 和通知携带的 JWS。
-5. 重启后端，再重新编译安装 iOS App。请求固定为 `https://budmon.budwk.com/api`；内购额度仅绑定官方服务器上的当前登录账号。
+5. 执行 `sudo systemctl restart budmon` 重启后端，再重新打开 iOS App 刷新内购状态。仅修改服务端环境配置无需重新编译安装 App。请求固定为 `https://budmon.budwk.com/api`；内购额度仅绑定官方服务器上的当前登录账号。
 
 每次购买 1 份永久名额，累计没有业务上限，可以重复购买。支付待批准、用户取消、交易验证失败均不会提前发放；服务端确认入账后才 `finish()`。客户端监听交易更新，并在登录/回到前台/手动同步时补交未完成交易。已完成的消耗型购买不会通过 `currentEntitlements` 恢复，换设备只需登录同一 BudMon 账号读取服务端余额。网络失败时不要重复付款，先使用“同步未完成购买”。
 

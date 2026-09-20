@@ -126,7 +126,7 @@ sudo systemctl status certbot.timer
 
 ## iOS 内购与管理记录
 
-内购产品 `budmon_number`：每份永久增加 1 个监测名额，可重复购买，累计不设业务上限。App 显示 StoreKit 返回的本地化价格；请在 App Store Connect 创建**消耗型**产品，将中国大陆价格设为 **¥1.00**，完成销售地区、税务/银行资料和审核。代码不能代替 App Store Connect 的产品发布与定价。
+内购产品「1个永久检测目标」（`com.budwk.app.budmon.1`）：每份永久增加 1 个监测名额，可重复购买，累计不设业务上限。App 显示 StoreKit 返回的本地化价格；请在 App Store Connect 创建**消耗型**产品，将中国大陆价格设为 **¥1.00**，完成销售地区、税务/银行资料和审核。代码不能代替 App Store Connect 的产品发布与定价。
 
 在 `/data/budmon/.env` 添加：
 

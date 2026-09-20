@@ -35,6 +35,8 @@ final class FlowTests: XCTestCase {
         let later = app.buttons["以后"]
         if later.waitForExistence(timeout:3) { later.tap() }
         app.buttons["新增监测目标"].firstMatch.tap()
+        let notificationPrompt = app.alerts["开启系统通知"]
+        if notificationPrompt.waitForExistence(timeout:3) { notificationPrompt.buttons["暂不开启"].tap() }
         app.textFields["targetName"].tap()
         app.textFields["targetName"].typeText("Production Website")
         let url = app.textFields["targetURL"]

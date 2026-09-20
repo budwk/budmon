@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import logging
 import secrets
 import sqlite3
@@ -112,6 +113,11 @@ class LoginIn(BaseModel):
     password: str = Field(max_length=128)
 
 
+class WebLoginIn(LoginIn):
+    captcha_id: str = Field(min_length=20, max_length=64)
+    captcha_code: str = Field(min_length=4, max_length=8)
+
+
 class ResetPasswordIn(BaseModel):
     old_password: str
     new_password: str = Field(min_length=8, max_length=72)
@@ -191,6 +197,125 @@ def rate_limit(key, limit=20, period=60):
             """,
             (key, now, count + 1),
         )
+
+
+def _captcha_code() -> str:
+    alphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+    return "".join(secrets.choice(alphabet) for _ in range(5))
+
+
+def _captcha_svg(code: str) -> str:
+    lines = []
+    for _ in range(7):
+        x1, y1 = secrets.randbelow(150), secrets.randbelow(48)
+        x2, y2 = secrets.randbelow(150), secrets.randbelow(48)
+        color = secrets.choice(("#93a4bd", "#b3bfd0", "#7ea0c4", "#a5b4c7"))
+        lines.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{color}" stroke-width="1"/>')
+    letters = []
+    for index, char in enumerate(code):
+        x = 18 + index * 27
+        y = 32 + secrets.randbelow(7) - 3
+        angle = secrets.randbelow(31) - 15
+        letters.append(
+            f'<text x="{x}" y="{y}" transform="rotate({angle} {x} {y})" '
+            f'font-size="25" font-weight="700" font-family="monospace" fill="#1f3b61">{char}</text>'
+        )
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="150" height="48" viewBox="0 0 150 48">'
+        '<rect width="150" height="48" rx="6" fill="#eef4fb"/>'
+        + "".join(lines)
+        + "".join(letters)
+        + "</svg>"
+    )
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
+
+
+def _verify_captcha(captcha_id: str, answer: str) -> None:
+    now = int(time.time())
+    valid = False
+    with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute(
+            "SELECT answer_hash,expires_at FROM captcha_challenges WHERE id=?",
+            (captcha_id,),
+        ).fetchone()
+        if row:
+            db.execute("DELETE FROM captcha_challenges WHERE id=?", (captcha_id,))
+            expected = digest(f"{captcha_id}:{answer.strip().upper()}")
+            valid = row["expires_at"] >= now and secrets.compare_digest(row["answer_hash"], expected)
+    if not valid:
+        raise HTTPException(400, "验证码错误或已过期，请重新输入")
+
+
+def _locked_error(seconds: int) -> HTTPException:
+    seconds = max(1, seconds)
+    minutes = max(1, (seconds + 59) // 60)
+    return HTTPException(
+        429,
+        f"登录错误次数过多，账号已锁定，请在 {minutes} 分钟后重试",
+        headers={"Retry-After": str(seconds)},
+    )
+
+
+def _authenticate(payload: LoginIn, request: Request):
+    rate_limit("auth:" + request.client.host)
+    username = payload.username.strip().lower()
+    now = int(time.time())
+    with get_db() as db:
+        attempt = db.execute(
+            "SELECT failure_count,locked_until FROM login_attempts WHERE username=?",
+            (username,),
+        ).fetchone()
+        user = db.execute("SELECT * FROM users WHERE lower(username)=?", (username,)).fetchone()
+    if attempt and attempt["locked_until"] > now:
+        raise _locked_error(attempt["locked_until"] - now)
+
+    password_ok = bool(user and not user["disabled"] and verify_password(payload.password, user["password_hash"]))
+    if not password_ok:
+        locked_until = 0
+        failures = 0
+        with get_db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute("DELETE FROM login_attempts WHERE updated_at<?", (now - 86400,))
+            current = db.execute(
+                "SELECT failure_count,locked_until FROM login_attempts WHERE username=?",
+                (username,),
+            ).fetchone()
+            if current and current["locked_until"] > now:
+                locked_until = current["locked_until"]
+                failures = current["failure_count"]
+            else:
+                failures = (current["failure_count"] if current and current["locked_until"] == 0 else 0) + 1
+                locked_until = now + 600 if failures >= 3 else 0
+                db.execute(
+                    """INSERT INTO login_attempts(username,failure_count,locked_until,updated_at)
+                       VALUES(?,?,?,?)
+                       ON CONFLICT(username) DO UPDATE SET
+                       failure_count=excluded.failure_count,
+                       locked_until=excluded.locked_until,
+                       updated_at=excluded.updated_at""",
+                    (username, failures, locked_until, now),
+                )
+        if locked_until > now:
+            raise _locked_error(locked_until - now)
+        raise HTTPException(401, f"用户名或密码错误，还可尝试 {3 - failures} 次")
+
+    locked_until = 0
+    with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        current = db.execute(
+            "SELECT locked_until FROM login_attempts WHERE username=?",
+            (username,),
+        ).fetchone()
+        if current and current["locked_until"] > now:
+            locked_until = current["locked_until"]
+        else:
+            db.execute("DELETE FROM login_attempts WHERE username=?", (username,))
+            record_login(db, user["id"], "login")
+            tokens = create_session(db, user["id"])
+    if locked_until > now:
+        raise _locked_error(locked_until - now)
+    return tokens
 
 
 def require_user(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(auth_scheme)]):
@@ -290,15 +415,30 @@ def register(payload: InstallIn, request: Request):
         return create_session(db,user_id)
 
 
+@app.get("/api/auth/captcha")
+def captcha(request: Request):
+    rate_limit("captcha:" + request.client.host, 60)
+    captcha_id = secrets.token_urlsafe(24)
+    code = _captcha_code()
+    now = int(time.time())
+    with get_db() as db:
+        db.execute("DELETE FROM captcha_challenges WHERE expires_at<?", (now,))
+        db.execute(
+            "INSERT INTO captcha_challenges(id,answer_hash,expires_at) VALUES(?,?,?)",
+            (captcha_id, digest(f"{captcha_id}:{code}"), now + 300),
+        )
+    return {"captcha_id": captcha_id, "image": _captcha_svg(code), "expires_in": 300}
+
+
+@app.post("/api/auth/web-login")
+def web_login(payload: WebLoginIn, request: Request):
+    _verify_captcha(payload.captcha_id, payload.captcha_code)
+    return _authenticate(payload, request)
+
+
 @app.post("/api/auth/login")
 def login(payload: LoginIn, request: Request):
-    rate_limit("auth:" + request.client.host)
-    with get_db() as db:
-        user = db.execute("SELECT * FROM users WHERE lower(username)=?", (payload.username.lower(),)).fetchone()
-        if not user or user["disabled"] or not verify_password(payload.password,user["password_hash"]):
-            raise HTTPException(401, "用户名或密码错误")
-        record_login(db, user["id"], "login")
-        return create_session(db,user["id"])
+    return _authenticate(payload, request)
 
 
 class RefreshIn(BaseModel):

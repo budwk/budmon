@@ -55,17 +55,41 @@ const { Title, Text } = Typography;
 function AuthScreen({ installed, onAuthed }) {
   const [loading, setLoading] = useState(false);
   const [register, setRegister] = useState(false);
+  const [captcha, setCaptcha] = useState(null);
+  const [captchaLoading, setCaptchaLoading] = useState(false);
+  const [form] = Form.useForm();
   const title = installed ? (register ? "注册账号" : "账号登录") : "初始化安装";
+
+  async function loadCaptcha() {
+    setCaptchaLoading(true);
+    try {
+      setCaptcha((await api.get("/auth/captcha")).data);
+      form.setFieldValue("captcha_code", "");
+    } catch (err) {
+      setCaptcha(null);
+      message.error(err.response?.data?.detail || "验证码加载失败");
+    } finally {
+      setCaptchaLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (installed && !register) loadCaptcha();
+    else setCaptcha(null);
+  }, [installed, register]);
 
   async function submit(values) {
     setLoading(true);
+    const isLogin = installed && !register;
     try {
-      const url = installed ? (register ? "/auth/register" : "/auth/login") : "/install";
-      const { data } = await api.post(url, values);
+      const url = installed ? (register ? "/auth/register" : "/auth/web-login") : "/install";
+      const payload = isLogin ? { ...values, captcha_id: captcha?.captcha_id } : values;
+      const { data } = await api.post(url, payload);
       localStorage.setItem("budmon_token", data.token);
       onAuthed();
     } catch (err) {
       message.error(err.response?.data?.detail || "操作失败");
+      if (isLogin) loadCaptcha();
     } finally {
       setLoading(false);
     }
@@ -79,18 +103,28 @@ function AuthScreen({ installed, onAuthed }) {
             <Title level={2}>BudMon</Title>
             <Text type="secondary">{title}</Text>
           </div>
-          <Form layout="vertical" onFinish={submit}>
+          <Form form={form} layout="vertical" onFinish={submit}>
             <Form.Item name="username" label="用户名" rules={[{ required: true }]}>
               <Input size="large" autoComplete="username" />
             </Form.Item>
             <Form.Item name="password" label="密码" rules={[{ required: true, min: installed && !register ? 1 : 8 }]}>
               <Input.Password size="large" autoComplete={installed ? "current-password" : "new-password"} />
             </Form.Item>
-            <Button type="primary" htmlType="submit" size="large" block loading={loading}>
+            {installed && !register && <Form.Item name="captcha_code" label="验证码" rules={[{ required: true, message: "请输入验证码" }]}>
+              <div className="captcha-row">
+                <Input size="large" maxLength={5} autoComplete="off" placeholder="请输入图中字符" />
+                <button type="button" className="captcha-image" onClick={loadCaptcha} aria-label="刷新验证码" title="点击刷新验证码">
+                  {captchaLoading ? <Spin size="small" /> : captcha?.image ? <img src={captcha.image} alt="验证码" /> : <RefreshCw size={18} />}
+                </button>
+              </div>
+            </Form.Item>}
+            <Button type="primary" htmlType="submit" size="large" block loading={loading} disabled={installed && !register && !captcha}>
               {installed ? (register ? "注册" : "登录") : "完成初始化"}
             </Button>
           </Form>
-          {installed && <Button type="link" onClick={() => setRegister(!register)}>{register ? "已有账号？去登录" : "创建新账号"}</Button>}
+          {installed && <Button type="link" onClick={() => { setRegister(!register); form.resetFields(); }}>
+            {register ? "已有账号？去登录" : "创建新账号"}
+          </Button>}
         </Space>
       </Card>
     </div>
