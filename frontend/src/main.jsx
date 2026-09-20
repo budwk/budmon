@@ -2,11 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Alert,
+  Avatar,
   Button,
   Card,
   Checkbox,
   Col,
   ConfigProvider,
+  Drawer,
   Form,
   Input,
   InputNumber,
@@ -14,6 +16,7 @@ import {
   Menu,
   Modal,
   Popconfirm,
+  Progress,
   Row,
   Select,
   Space,
@@ -29,7 +32,9 @@ import {
 import {
   Activity,
   Bell,
+  CreditCard,
   Eraser,
+  History,
   KeyRound,
   LogOut,
   Play,
@@ -37,7 +42,9 @@ import {
   RefreshCw,
   Save,
   Settings,
+  ShieldCheck,
   Trash2,
+  Users,
 } from "lucide-react";
 import { api } from "./api";
 import "./styles.css";
@@ -492,42 +499,253 @@ function PasswordPanel() {
   );
 }
 
+function ActivityRecords({ userId = null }) {
+  const [kind, setKind] = useState("purchases");
+  const [page, setPage] = useState(1);
+  const [result, setResult] = useState({ items: [], total: 0 });
+  const [loading, setLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    api.get(`/admin/${kind}`, { params: { user_id: userId, offset: (page - 1) * 50, limit: 50 } })
+      .then(({ data }) => { if (active) setResult(data); })
+      .catch(error => { if (active) message.error(error.response?.data?.detail || "加载记录失败"); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [kind, page, userId, refreshKey]);
+
+  const credited = result.items.filter(item => item.status === "credited").length;
+  const revoked = result.items.filter(item => item.status === "revoked").length;
+  const columns = kind === "purchases" ? [
+    {
+      title: "用户",
+      dataIndex: "username",
+      width: 150,
+      render: (value, row) => <Space>
+        <Avatar size={32}>{(value || "?").slice(0, 1).toUpperCase()}</Avatar>
+        <div><div className="cell-title">{value}</div><Text type="secondary">ID {row.user_id || "—"}</Text></div>
+      </Space>,
+    },
+    {
+      title: "订单信息",
+      width: 300,
+      render: (_, row) => <div>
+        <Space size={6}><CreditCard size={15} /><span className="cell-title">{row.product_id}</span></Space>
+        <div><Text className="transaction-id" type="secondary" copyable={{ text: row.transaction_id }}>{row.transaction_id}</Text></div>
+      </div>,
+    },
+    {
+      title: "权益变更",
+      width: 110,
+      align: "center",
+      render: (_, row) => <div className={row.status === "credited" ? "quota-change positive" : "quota-change negative"}>
+        {row.status === "credited" ? "+" : "−"}{row.quantity}
+        <small>监测名额</small>
+      </div>,
+    },
+    {
+      title: "支付金额",
+      width: 140,
+      render: (_, row) => row.price_milli == null
+        ? <Text type="secondary">Apple 未提供</Text>
+        : <span className="cell-title">{row.currency || ""} {(row.price_milli / 1000).toFixed(2)}</span>,
+    },
+    {
+      title: "状态",
+      width: 150,
+      render: (_, row) => <Space direction="vertical" size={4}>
+        <Tag color={row.status === "credited" ? "success" : "error"}>{row.status === "credited" ? "已到账" : "已退款 / 撤销"}</Tag>
+        <Tag color={row.environment === "Sandbox" ? "gold" : "blue"}>{row.environment === "Sandbox" ? "Sandbox 测试" : "Production"}</Tag>
+      </Space>,
+    },
+    {
+      title: "时间",
+      width: 210,
+      render: (_, row) => <div className="time-stack">
+        <span><Text type="secondary">购买</Text>{row.purchased_at}</span>
+        <span><Text type="secondary">入账</Text>{row.created_at}</span>
+      </div>,
+    },
+  ] : [
+    {
+      title: "用户",
+      dataIndex: "username",
+      render: value => <Space><Avatar size={32}>{(value || "?").slice(0, 1).toUpperCase()}</Avatar><span className="cell-title">{value}</span></Space>,
+    },
+    { title: "活动", render: (_, row) => <Tag color={row.kind === "register" ? "cyan" : "blue"}>{row.kind === "register" ? "注册并登录" : "账号登录"}</Tag> },
+    { title: "发生时间", dataIndex: "created_at", render: value => <span className="cell-title">{value}</span> },
+  ];
+  return <div className="records-panel">
+    <div className="panel-toolbar">
+      <Tabs activeKey={kind} onChange={value => { setKind(value); setPage(1); setResult({ items: [], total: 0 }); }} items={[
+        { key: "purchases", label: <Space size={6}><CreditCard size={16} />购买记录</Space> },
+        { key: "logins", label: <Space size={6}><History size={16} />登录记录</Space> },
+      ]} />
+      <Button icon={<RefreshCw size={15} />} loading={loading} onClick={() => setRefreshKey(value => value + 1)}>刷新</Button>
+    </div>
+    <Row gutter={[12, 12]} className="record-stats">
+      <Col xs={24} sm={8}><div className="mini-stat"><span>记录总数</span><strong>{result.total}</strong></div></Col>
+      {kind === "purchases" && <>
+        <Col xs={12} sm={8}><div className="mini-stat success"><span>本页已到账</span><strong>{credited}</strong></div></Col>
+        <Col xs={12} sm={8}><div className="mini-stat danger"><span>本页已撤销</span><strong>{revoked}</strong></div></Col>
+      </>}
+    </Row>
+    <div className="table-note"><Text type="secondary">所有时间均为北京时间；Sandbox 订单仅用于测试。</Text></div>
+    <Table className="admin-table" rowKey="id" loading={loading} dataSource={result.items} columns={columns}
+      scroll={{ x: kind === "purchases" ? 1060 : 640 }}
+      locale={{ emptyText: kind === "purchases" ? "暂无购买记录" : "暂无登录记录" }}
+      pagination={{ current: page, pageSize: 50, total: result.total, showSizeChanger: false, showTotal: total => `共 ${total} 条`, onChange: setPage }} />
+  </div>;
+}
+
 function UsersPanel() {
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [keyword, setKeyword] = useState("");
   const [editing, setEditing] = useState(null);
+  const [recordsUser, setRecordsUser] = useState(null);
   const [form] = Form.useForm();
   async function load() {
+    setLoading(true);
     try { setRows((await api.get(`/admin/users?offset=${page * 100}`)).data); }
     catch (error) { message.error(error.response?.data?.detail || "加载用户失败"); }
+    finally { setLoading(false); }
   }
   useEffect(() => { load(); }, [page]);
   async function save(values) {
+    setSaving(true);
     try {
       await api.put(`/admin/users/${editing.id}`, { ...values, quota_override: values.quota_override ?? null, plan_expires_at: values.plan_expires_at || null });
       setEditing(null); message.success("用户权益已更新"); load();
     } catch (error) { message.error(error.response?.data?.detail || "更新失败，请检查到期时间格式"); }
+    finally { setSaving(false); }
   }
-  return <Card title="用户与监测配额">
-    <Alert type="info" showIcon message="套餐额度由服务端强制校验。到期自动回落免费版；已有目标保留，超额时无法新增。在线支付尚未开放。" className="mb16" />
-    <Table rowKey="id" dataSource={rows} pagination={false} columns={[
-      {title:"账号", dataIndex:"username"}, {title:"角色",dataIndex:"role"},
-      {title:"套餐",dataIndex:"plan_name"},
-      {title:"监测数量",render:(_,r)=>`${r.target_used} / ${r.target_limit}`},
-      {title:"状态",render:(_,r)=><Tag color={r.disabled ? "red":"green"}>{r.disabled ? "停用":"正常"}</Tag>},
-      {title:"操作",render:(_,r)=><Button onClick={()=>{setEditing(r);form.setFieldsValue({...r, plan_expires_at:r.plan_expires_at ? r.plan_expires_at.replace(" ","T")+"Z" : ""});}}>管理权益</Button>}
-    ]} />
-    <Space className="mb16"><Button disabled={page === 0} onClick={()=>setPage(page-1)}>上一页</Button><Text>第 {page+1} 页</Text><Button disabled={rows.length < 100} onClick={()=>setPage(page+1)}>下一页</Button></Space>
-    <Modal title={`管理 ${editing?.username || ""}`} open={!!editing} onCancel={()=>setEditing(null)} footer={null}>
-      <Form form={form} layout="vertical" onFinish={save}>
-        <Form.Item name="plan_id" label="套餐"><Select options={[{value:"free",label:"免费版 · 5 个"},{value:"pro",label:"专业版 · 30 个"}]} /></Form.Item>
-        <Form.Item name="quota_override" label="自定义数量（留空使用套餐）"><InputNumber min={0} max={10000} /></Form.Item>
-        <Form.Item name="plan_expires_at" label="套餐到期时间（含时区，留空长期）"><Input placeholder="2027-01-01T00:00:00+08:00" /></Form.Item>
-        <Form.Item name="disabled" label="停用账号" valuePropName="checked"><Switch /></Form.Item>
-        <Button htmlType="submit" type="primary">保存权益</Button>
-      </Form>
+  function edit(row) {
+    setEditing(row);
+    form.setFieldsValue({
+      ...row,
+      plan_expires_at: row.plan_expires_at ? row.plan_expires_at.replace(" ", "T") + "Z" : "",
+    });
+  }
+  const filteredRows = rows.filter(row => row.username.toLowerCase().includes(keyword.trim().toLowerCase()));
+  const enabledUsers = rows.filter(row => !row.disabled).length;
+  const purchasedQuota = rows.reduce((sum, row) => sum + Number(row.purchased_quota || 0), 0);
+  const usedQuota = rows.reduce((sum, row) => sum + Number(row.target_used || 0), 0);
+  const totalQuota = rows.reduce((sum, row) => sum + Number(row.target_limit || 0), 0);
+
+  return <div className="admin-page">
+    <div className="page-heading">
+      <div>
+        <Title level={3}>用户权益管理</Title>
+        <Text type="secondary">查看套餐与配额使用情况，并调整用户权益和账号状态。</Text>
+      </div>
+      <Button icon={<RefreshCw size={16} />} loading={loading} onClick={load}>刷新数据</Button>
+    </div>
+    <Row gutter={[14, 14]} className="summary-grid">
+      <Col xs={12} lg={6}><Card className="summary-card"><Statistic title="本页用户" value={rows.length} prefix={<Users size={19} />} /></Card></Col>
+      <Col xs={12} lg={6}><Card className="summary-card"><Statistic title="正常账号" value={enabledUsers} prefix={<ShieldCheck size={19} />} /></Card></Col>
+      <Col xs={12} lg={6}><Card className="summary-card"><Statistic title="累计已购名额" value={purchasedQuota} prefix={<CreditCard size={19} />} /></Card></Col>
+      <Col xs={12} lg={6}><Card className="summary-card"><Statistic title="配额使用" value={usedQuota} suffix={`/ ${totalQuota}`} /></Card></Col>
+    </Row>
+    <Modal title={`${recordsUser?.username || ""} · 活动记录`} open={!!recordsUser} onCancel={()=>setRecordsUser(null)} footer={null} width={1120} destroyOnClose>
+      {recordsUser && <ActivityRecords key={recordsUser.id} userId={recordsUser.id} />}
     </Modal>
-  </Card>;
+    <Card className="management-card">
+      <Alert type="info" showIcon message="权益计算规则"
+        description="套餐或自定义基础名额，加上 iOS 已购名额即为最终配额。套餐到期后自动回落免费版；退款会扣回对应名额。" />
+      <div className="list-toolbar">
+        <Input allowClear prefix={<Users size={16} />} value={keyword} onChange={event => setKeyword(event.target.value)}
+          placeholder="搜索当前页账号" className="user-search" />
+        <Text type="secondary">显示 {filteredRows.length} 位用户 · 第 {page + 1} 页</Text>
+      </div>
+      <Table className="admin-table users-table" rowKey="id" loading={loading} dataSource={filteredRows} pagination={false} scroll={{ x: 1040 }} columns={[
+        {
+          title: "账号",
+          width: 210,
+          render: (_, row) => <Space>
+            <Avatar>{row.username.slice(0, 1).toUpperCase()}</Avatar>
+            <div>
+              <div className="cell-title">{row.username}</div>
+              <Space size={4}>
+                <Tag bordered={false} color={row.role === "admin" ? "purple" : "default"}>{row.role === "admin" ? "管理员" : "用户"}</Tag>
+                <Tag bordered={false} color={row.disabled ? "error" : "success"}>{row.disabled ? "已停用" : "正常"}</Tag>
+              </Space>
+            </div>
+          </Space>,
+        },
+        {
+          title: "当前权益",
+          width: 190,
+          render: (_, row) => <div>
+            <Space><Tag color={row.plan_id === "pro" ? "blue" : "default"}>{row.plan_name}</Tag>{row.purchased_quota > 0 && <Tag color="cyan">已购 +{row.purchased_quota}</Tag>}</Space>
+            <div className="sub-line">{row.plan_expires_at ? `到期：${row.plan_expires_at}` : "长期有效"}</div>
+          </div>,
+        },
+        {
+          title: "配额使用",
+          width: 220,
+          render: (_, row) => {
+            const percent = row.target_limit ? Math.min(100, Math.round(row.target_used / row.target_limit * 100)) : 0;
+            return <div className="quota-progress">
+              <div><strong>{row.target_used}</strong><span> / {row.target_limit} 个监测目标</span></div>
+              <Progress percent={percent} size="small" showInfo={false} status={percent >= 100 ? "exception" : "normal"} />
+            </div>;
+          },
+        },
+        {
+          title: "账号活动",
+          width: 220,
+          render: (_, row) => <div className="time-stack">
+            <span><Text type="secondary">注册</Text>{row.created_at}</span>
+            <span><Text type="secondary">登录</Text>{row.last_login_at || "暂无记录"}</span>
+          </div>,
+        },
+        {
+          title: "操作",
+          fixed: "right",
+          width: 190,
+          render: (_, row) => <Space>
+            <Button onClick={() => setRecordsUser(row)}>活动记录</Button>
+            <Button type="primary" onClick={() => edit(row)}>管理权益</Button>
+          </Space>,
+        },
+      ]} />
+      <div className="pager">
+        <Button disabled={page === 0 || loading} onClick={()=>setPage(page-1)}>上一页</Button>
+        <Text>第 {page+1} 页</Text>
+        <Button disabled={rows.length < 100 || loading} onClick={()=>setPage(page+1)}>下一页</Button>
+      </div>
+    </Card>
+    <Drawer title="管理用户权益" open={!!editing} onClose={()=>setEditing(null)} width={480} destroyOnClose
+      extra={<Button type="primary" loading={saving} onClick={() => form.submit()}>保存更改</Button>}>
+      {editing && <div className="entitlement-drawer">
+        <div className="drawer-user">
+          <Avatar size={46}>{editing.username.slice(0, 1).toUpperCase()}</Avatar>
+          <div><Title level={5}>{editing.username}</Title><Text type="secondary">当前可用 {editing.target_limit} 个名额，已使用 {editing.target_used} 个</Text></div>
+        </div>
+        <Form form={form} layout="vertical" onFinish={save}>
+          <div className="form-section-title">套餐与基础名额</div>
+          <Form.Item name="plan_id" label="用户套餐" extra="套餐决定默认的基础名额。">
+            <Select size="large" options={[{value:"free",label:"免费版 · 5 个基础名额"},{value:"pro",label:"专业版 · 30 个基础名额"}]} />
+          </Form.Item>
+          <Form.Item name="quota_override" label="自定义基础名额" extra="留空则使用套餐名额；已购买名额始终在此基础上累加。">
+            <InputNumber size="large" min={0} max={10000} placeholder="使用套餐默认值" className="full" />
+          </Form.Item>
+          <Form.Item name="plan_expires_at" label="套餐到期时间" extra="留空表示长期有效；填写时必须包含时区。">
+            <Input size="large" placeholder="例如 2027-01-01T00:00:00+08:00" />
+          </Form.Item>
+          <div className="form-section-title">账号状态</div>
+          <div className="status-control">
+            <div><div className="cell-title">停用此账号</div><Text type="secondary">停用后立即清除登录会话和推送设备。</Text></div>
+            <Form.Item name="disabled" valuePropName="checked" noStyle><Switch /></Form.Item>
+          </div>
+        </Form>
+      </div>}
+    </Drawer>
+  </div>;
 }
 
 function Shell({ onLogout }) {
@@ -538,7 +756,11 @@ function Shell({ onLogout }) {
   const items = useMemo(() => [
     { key: "dashboard", icon: <Activity size={18} />, label: "运行状态" },
     { key: "targets", icon: <Bell size={18} />, label: "监控目标" },
-    ...(profile?.role === "admin" ? [{ key: "settings", icon: <Settings size={18} />, label: "系统配置" }, {key:"users", icon:<KeyRound size={18}/>, label:"用户与配额"}] : []),
+    ...(profile?.role === "admin" ? [
+      { key: "settings", icon: <Settings size={18} />, label: "系统配置" },
+      { key: "users", icon: <Users size={18} />, label: "权益管理" },
+      { key: "records", icon: <CreditCard size={18} />, label: "购买记录" },
+    ] : []),
     { key: "password", icon: <KeyRound size={18} />, label: "重置密码" },
   ], [profile]);
 
@@ -575,6 +797,15 @@ function Shell({ onLogout }) {
           {selected === "targets" && <Targets onChanged={() => setRefreshKey((v) => v + 1)} />}
           {selected === "settings" && profile?.role === "admin" && <SettingsPanel />}
           {selected === "users" && profile?.role === "admin" && <UsersPanel />}
+          {selected === "records" && profile?.role === "admin" && <div className="admin-page">
+            <div className="page-heading">
+              <div>
+                <Title level={3}>购买与账号活动</Title>
+                <Text type="secondary">核对 Apple 订单状态、名额到账情况及用户登录记录。</Text>
+              </div>
+            </div>
+            <Card className="management-card"><ActivityRecords /></Card>
+          </div>}
           {selected === "password" && <PasswordPanel />}
         </Content>
       </Layout>

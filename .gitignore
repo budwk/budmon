@@ -144,6 +144,7 @@ vite.config.ts.timestamp-*
 
 # Python / Xcode / local secrets
 .venv/
+.budmon-venv/
 __pycache__/
 .pytest_cache/
 *.pyc

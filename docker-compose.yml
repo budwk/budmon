@@ -1,11 +1,36 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: budmon-postgres
+    environment:
+      POSTGRES_USER: budmon
+      POSTGRES_DB: budmon
+      POSTGRES_PASSWORD: ${BUDMON_DB_PASSWORD:-budmon}
+    volumes:
+      - budmon-postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
   backend:
     image: wizzer/budmon-backend:1.0.2
     container_name: budmon-backend
+    depends_on:
+      - postgres
     environment:
+      BUDMON_DATABASE_URL: ${BUDMON_DATABASE_URL:-postgresql://budmon:${BUDMON_DB_PASSWORD:-budmon}@postgres:5432/budmon}
       BUDMON_DATA_DIR: /data
       BUDMON_LOG_MAX_PER_TARGET: ${BUDMON_LOG_MAX_PER_TARGET:-1000}
       BUDMON_LOG_RETENTION_DAYS: ${BUDMON_LOG_RETENTION_DAYS:-7}
+      BUDMON_MONITOR_WORKERS: ${BUDMON_MONITOR_WORKERS:-16}
+      BUDMON_MONITOR_BATCH_SIZE: ${BUDMON_MONITOR_BATCH_SIZE:-250}
+      BUDMON_CERT_CHECK_INTERVAL_SECONDS: ${BUDMON_CERT_CHECK_INTERVAL_SECONDS:-21600}
+      BUDMON_PUSH_WORKERS: ${BUDMON_PUSH_WORKERS:-8}
+      BUDMON_PUSH_BATCH_SIZE: ${BUDMON_PUSH_BATCH_SIZE:-500}
+      BUDMON_PUSH_INTERVAL_SECONDS: ${BUDMON_PUSH_INTERVAL_SECONDS:-2}
+      BUDMON_PUSH_RETENTION_DAYS: ${BUDMON_PUSH_RETENTION_DAYS:-30}
+      BUDMON_RETENTION_INTERVAL_MINUTES: ${BUDMON_RETENTION_INTERVAL_MINUTES:-15}
+      BUDMON_RETENTION_BATCH_SIZE: ${BUDMON_RETENTION_BATCH_SIZE:-250}
+      BUDMON_DB_POOL_MIN: ${BUDMON_DB_POOL_MIN:-2}
+      BUDMON_DB_POOL_MAX: ${BUDMON_DB_POOL_MAX:-24}
       # Backend is only reachable through the frontend on this private Docker network.
       FORWARDED_ALLOW_IPS: "*"
       BUDMON_SECRET_KEY: ${BUDMON_SECRET_KEY:-}
@@ -28,3 +53,4 @@ services:
 
 volumes:
   budmon-data:
+  budmon-postgres-data:

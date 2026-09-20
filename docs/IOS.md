@@ -18,7 +18,7 @@ npm ci
 npm run dev
 ```
 
-Vite 开发服务器已代理 `/api` 到 `127.0.0.1:8000`。先访问网页完成管理员初始化；普通用户之后可以在网页或 iOS 注册。账号为 3–32 位字母、数字、`_ . -`，新密码至少 8 位且最多 72 个 UTF-8 字节。已有旧密码仍可登录。
+管理后台开发地址为 `http://localhost:5173/admin/`。Vite 开发服务器已代理 `/api` 到 `127.0.0.1:8000`。先访问网页完成管理员初始化；普通用户之后可以在网页或 iOS 注册。账号为 3–32 位字母、数字、`_ . -`，新密码至少 8 位且最多 72 个 UTF-8 字节。已有旧密码仍可登录。
 
 也可以直接从当前代码构建 Docker：
 
@@ -27,20 +27,20 @@ cp .env.example .env
 docker compose -f docker-compose.local.yml up -d --build
 ```
 
-网页与 API 都位于 `http://localhost:9977`。iOS 支持公网 HTTP 和 HTTPS，填写服务器根地址，例如 `http://服务器公网IP:9977` 或 `https://monitor.example.com`，不附加 `/api`。默认 Compose 的镜像模式用于已发布镜像，验证本次代码请使用 `docker-compose.local.yml`。
+本地 Docker 网页与 API 位于 `http://localhost:9977`，用于后端/网页开发。iOS 固定请求 `https://budmon.budwk.com/api`，登录/注册页不提供服务器配置，也不读取旧版保存的自定义地址。默认 Compose 的镜像模式用于已发布镜像，验证本次代码请使用 `docker-compose.local.yml`。
 
 ## 打开和运行 iOS
 
 1. 直接打开 `ios/BudMon.xcodeproj`，无需下载 Swift 第三方依赖。
-2. Scheme 选择 **BudMon**，选择 iPhone 模拟器运行。首次登录页填写 `http://localhost:8000`（本机后端）或 `http://localhost:9977`（Docker）。
-3. 真机运行时，将 App Bundle ID 修改为自己的唯一标识，并在 Signing & Capabilities 选择 Apple Developer Team、启用 Push Notifications。真机不能用 `localhost` 访问 Mac；可使用公网 HTTP/HTTPS 地址，或可解析的 `http://你的Mac名称.local:8000`，此时后端需绑定 `0.0.0.0`。
+2. Scheme 选择 **BudMon**，选择 iPhone 模拟器运行。登录/注册页只填写用户名和密码，请求固定到官方 HTTPS API。
+3. 真机运行时，将 App Bundle ID 修改为自己的唯一标识，并在 Signing & Capabilities 选择 Apple Developer Team、启用 Push Notifications。当前 App 仅连接官方 HTTPS API；修改 Bundle ID 时还需同步 App Store 与 APNs 配置。
 4. 若修改工程结构，可执行 `xcodegen generate --spec ios/project.yml`。提交的 `.xcodeproj` 可直接用；重新生成前需同步自定义 Bundle ID / Team 到 YAML，避免覆盖。
 
 界面包含注册登录、运行总览、名称/网址搜索、异常/证书筛选、新增/编辑/暂停/删除目标、状态与证书详情、分页历史、告警收件箱、推送开关、额度展示、修改密码、退出与删除账号。采用深色原生 SwiftUI 布局，支持 iPhone/iPad、下拉刷新；总览前台每 30 秒刷新。时间线显示北京时间，证书到期字段保留 ISO 时区。
 
 凭据存入 `AfterFirstUnlockThisDeviceOnly` Keychain。访问令牌有效期 24 小时，刷新凭据有效期 30 天，每次刷新轮换，改密会撤销所有登录和设备绑定。退出必须联网以解绑本机 APNs token，避免下一位设备使用者收到旧账号的通知。
 
-客户端通过 `NSAllowsArbitraryLoads` 支持用户自定义的公网 HTTP 地址，并移除了会覆盖该设置的 `NSAllowsLocalNetworking` 键，见 [Apple ATS 配置说明](https://developer.apple.com/documentation/bundleresources/information-property-list/nsapptransportsecurity/nsallowsarbitraryloads)。修改后需重新编译安装 iOS App。
+客户端已移除自定义服务器入口、HTTP 例外和局域网使用说明。旧的自建服务器会话不会转发给官方 API，需重新登录；原官方服务器会话可继续使用。修改后需重新编译安装 iOS App。
 
 ## APNs 真机通知
 
@@ -77,10 +77,24 @@ docker compose -f docker-compose.local.yml -f compose.apns.yml up -d --build
 - `plans`：套餐代码、数量、最小货币单位价格、币种、Apple 产品 ID、启用状态。
 - `users`：套餐、到期时间、人工配额覆盖；新增目标在 `BEGIN IMMEDIATE` 事务内计数与创建，防止并发绕过上限。所有目标（含暂停）占额度。
 - 到期时有效套餐回落免费版；保留已有目标继续检测，超额用户不能新增，删除后额度立即释放。`quota_override` 为管理员独立授权，优先于套餐且不会随套餐到期失效；如需撤销，清空覆盖值。
-- `billing_events`：预留支付事件表，`(provider, external_id)` 唯一，供后续已验签支付事件幂等入账。
-- `/api/plans` 明确返回 `purchase_enabled: false`。当前不展示可点击的购买按钮，不收款，不伪造订阅成功。
+- `purchases`：按 `(environment, transaction_id)` 唯一保存 Apple 验证过的交易；包含账号快照、商品、数量、币种、Apple 交易总金额（千分货币单位，包含交易数量）、状态及时间。购买额度单独求和后叠加在基础套餐/人工额度上，不随套餐到期失效。
+- `users.created_at` / `last_login_at` 和 `login_events`：注册、成功登录及最近登录时间；刷新访问令牌不算一次新登录。旧账号的历史登录不做虚构补录。
 
-正式接入付费时增加 StoreKit 2 产品查询/购买/恢复购买、服务端 App Store 签名交易校验、Server Notifications V2 幂等处理、续订/退款/撤销同步与权益流水。支付验签通过后才更新套餐；切勿信任客户端传来的数量或购买成功标志。可复用现有套餐、配额和审计基础。
+### StoreKit 2 内购上线配置
+
+1. 在 App Store Connect 的当前 App 下创建**消耗型**内购，产品 ID 必须为 `budmon_number`，中国大陆价格设为 **¥1.00**，补全展示名称、说明和审核截图并提交审核。App 内以 `Product.displayPrice` 展示实际商店价格，不伪造价格。
+2. 确认 App 的 Bundle ID 为 `com.budwk.app.budmon`（当前 Xcode 工程），服务器 `/etc/budmon/budmon.env` 设置同值 `APPLE_BUNDLE_ID`，以及 App Store Connect 中的数字 `APPLE_APP_ID`。Xcode 工程与 xcodegen 源配置已同步该 Bundle ID；请核对自己 App Store Connect 中的实际值。
+3. 生产与沙盒 App Store Server Notifications **V2** 地址填 `https://budmon.budwk.com/api/iap/notifications`。服务端验证 Apple 根证书签名链、在线证书状态、Bundle ID、环境、商品类型、商品 ID 和账号 token，只接收 Apple 签名的数量。
+4. 沙盒/TestFlight/App Review 期间设置 `APPLE_ALLOW_SANDBOX=1`，使用专用测试账号；否则仅接受生产交易。沙盒入账会在后台标记 Sandbox。生产销售无需 App Store Server API 私钥，本实现验证 StoreKit 和通知携带的 JWS。
+5. 重启后端，再重新编译安装 iOS App。请求固定为 `https://budmon.budwk.com/api`；内购额度仅绑定官方服务器上的当前登录账号。
+
+每次购买 1 份永久名额，累计没有业务上限，可以重复购买。支付待批准、用户取消、交易验证失败均不会提前发放；服务端确认入账后才 `finish()`。客户端监听交易更新，并在登录/回到前台/手动同步时补交未完成交易。已完成的消耗型购买不会通过 `currentEntitlements` 恢复，换设备只需登录同一 BudMon 账号读取服务端余额。网络失败时不要重复付款，先使用“同步未完成购买”。
+
+退款/撤销通知会将对应购买设为撤销，旧收据重放不能恢复额度；较新的 Apple `REFUND_REVERSED` 可恢复。此实现依赖 Apple V2 通知同步退款，尚未实现历史交易定期对账；应监控通知失败并在 App Store Connect 重发。累计名额减少后不删除已有目标，但禁止超额新增。账号删除后购买/登录审计快照仍保留供账务核对，原名额不转入同名新账号；官网隐私说明已同步披露此保留规则。
+
+必须使用 App Store Connect 沙盒完成这些验收：成功支付增加 1、再次购买再增加 1、取消/待批准不增加、断网扣款后重连补入账、重复提交不重复发放、跨账号不能认领、重装同账号读回名额、退款通知只扣一次、退款撤销恢复、管理员能查看对应记录。本地单元测试和模拟器编译不代表真实 Apple 支付、价格或退款投递已经验证。
+
+Apple 参考：[签名交易验证](https://developer.apple.com/documentation/storekit/verificationresult/jwsrepresentation-21vgo)、[官方服务端库](https://github.com/apple/app-store-server-library-python)、[根证书](https://www.apple.com/certificateauthority/)。
 
 ## 验证
 
@@ -90,7 +104,7 @@ docker compose -f docker-compose.local.yml -f compose.apns.yml up -d --build
 cd frontend && npm run build
 ```
 
-Xcode 的 BudMon scheme 含独立单元测试；`BudMonUI` scheme 为实际端到端测试，要求 `localhost:8000` 已运行且完成初始化。UI 测试会注册随机测试账号、创建目标，并保存五个页面的截图到 `.xcresult`；仅在开发数据库运行，可使用这些测试账号的自助删除功能清理数据，或直接使用临时数据库运行测试。
+Xcode 的 BudMon scheme 包含单元测试，API 路径回归测试通过 URLProtocol 拦截，不发送真实登录请求。`BudMonUI` 的登录/注册界面测试不提交账号数据；完整业务流程使用官方 API，会注册测试账号并创建目标，默认跳过，仅在明确需要时设置测试进程环境变量 `BUDMON_RUN_LIVE_UI_TESTS=1` 后运行。
 
 ```bash
 xcodebuild -project ios/BudMon.xcodeproj -scheme BudMon \
@@ -119,7 +133,7 @@ xcodebuild -project ios/BudMon.xcodeproj -scheme BudMonUI \
 docker exec budmon-backend python -c 'from app.push import configured; print("APNs configured:", configured())'
 ```
 
-`True` 表示当前容器的四项环境变量与密钥文件存在性检查通过，并不代表已通过 Apple 鉴权或通知已送达。此时核对 App 的服务器地址，以及客户端是否已更新配置状态。iOS 已修复设备注册时读取旧 profile、将未加载配置当作未配置的问题：注册完成重新请求 `/api/me`，刷新账户时同步更新状态，并提供「刷新推送状态」按钮。此修复需要重新编译安装 App。
+`True` 表示当前容器的四项环境变量与密钥文件存在性检查通过，并不代表已通过 Apple 鉴权或通知已送达。此时核对官方域名的反向代理，以及客户端是否已更新配置状态。iOS 已修复设备注册时读取旧 profile、将未加载配置当作未配置的问题：注册完成重新请求 `/api/me`，刷新账户时同步更新状态，并提供「刷新推送状态」按钮。此修复需要重新编译安装 App。
 
 ## 检测历史分页与保留策略
 

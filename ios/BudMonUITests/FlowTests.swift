@@ -1,12 +1,28 @@
 import XCTest
 
-// Run with an initialized backend at http://localhost:8000 (see docs/IOS.md).
+// This flow uses the fixed production API; explicit opt-in is required to create data.
 final class FlowTests: XCTestCase {
-    @MainActor func testRegisterCreateAndInspect() {
+    @MainActor func testFixedServerAuthenticationScreen() {
         let app = XCUIApplication()
         app.launchArguments = ["-ui-testing"]
         app.launch()
         XCTAssertTrue(app.textFields["username"].waitForExistence(timeout:15))
+        XCTAssertTrue(app.secureTextFields["password"].exists)
+        XCTAssertFalse(app.textFields["server"].exists)
+        XCTAssertFalse(app.staticTexts["服务器地址"].exists)
+        app.segmentedControls.buttons["注册账号"].tap()
+        XCTAssertTrue(app.buttons["创建账号"].exists)
+        XCTAssertFalse(app.textFields["server"].exists)
+        XCTAssertFalse(app.staticTexts["服务器地址"].exists)
+    }
+
+    @MainActor func testRegisterCreateAndInspect() throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["BUDMON_RUN_LIVE_UI_TESTS"] == "1", "Live API test requires explicit opt-in")
+        let app = XCUIApplication()
+        app.launchArguments = ["-ui-testing"]
+        app.launch()
+        XCTAssertTrue(app.textFields["username"].waitForExistence(timeout:15))
+        XCTAssertFalse(app.textFields["server"].exists)
         screenshot("01-sign-in")
         app.segmentedControls.buttons["注册账号"].tap()
         app.textFields["username"].tap()

@@ -30,9 +30,6 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
-        NSAppTransportSecurity:
-          NSAllowsArbitraryLoads: true
-        NSLocalNetworkUsageDescription: 连接你在局域网部署的 BudMon 服务器。
         APNSEnvironment: $(APNS_ENVIRONMENT)
     entitlements:
       path: BudMon/BudMon.entitlements
@@ -40,7 +37,7 @@ targets:
         aps-environment: $(APS_ENVIRONMENT)
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.budmon.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.budwk.app.budmon
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
   BudMonTests:
     type: bundle.unit-test

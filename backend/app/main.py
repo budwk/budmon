@@ -15,7 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
-from .database import default_settings, get_db, get_setting, init_db, is_installed, merge_defaults, set_setting
+from .database import default_settings, get_db, get_setting, init_db, is_installed, merge_defaults, set_setting, IntegrityError
+from . import billing
 from .push import device_lock
 from .monitor import reload_scheduler, run_check_once, start_scheduler, stop_scheduler
 from .security import create_session, digest, hash_password, read_token, verify_password, session_tokens
@@ -42,6 +43,8 @@ TIME_FIELDS = {
     "checked_at",
     "created_at",
     "updated_at",
+    "last_login_at",
+    "purchased_at",
     "last_checked_at",
     "last_cert_checked_at",
 }
@@ -50,6 +53,10 @@ TIME_FIELDS = {
 def _to_local_time(value):
     if not value:
         return value
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
     if not isinstance(value, str):
         return value
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S.%f%z"):
@@ -160,16 +167,30 @@ class EmailSettingsIn(BaseModel):
     sender: str = ""
 
 
+def record_login(db, user_id, kind):
+    db.execute("UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?", (user_id,))
+    db.execute("INSERT INTO login_events(user_id,username,kind) SELECT id,username,? FROM users WHERE id=?", (kind, user_id))
+    billing.account_token(db, user_id)
+
+
 def rate_limit(key, limit=20, period=60):
     now = int(time.time()) // period
     with get_db() as db:
         db.execute("BEGIN IMMEDIATE")
-        db.execute("DELETE FROM rate_limits WHERE window < ?", (now-1,))
+        db.execute('DELETE FROM rate_limits WHERE "window" < ?', (now-1,))
         row = db.execute("SELECT * FROM rate_limits WHERE key=?", (key,)).fetchone()
         count = row["count"] if row and row["window"] == now else 0
         if count >= limit:
             raise HTTPException(429, "操作过于频繁，请稍后重试")
-        db.execute("INSERT OR REPLACE INTO rate_limits VALUES(?,?,?)", (key,now,count+1))
+        db.execute(
+            """
+            INSERT INTO rate_limits (key, "window", count)
+            VALUES (?, ?, ?)
+            ON CONFLICT (key) DO UPDATE
+            SET "window" = EXCLUDED."window", count = EXCLUDED.count
+            """,
+            (key, now, count + 1),
+        )
 
 
 def require_user(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(auth_scheme)]):
@@ -200,9 +221,11 @@ def quota(db, user):
         plan_id = "free"
     plan = db.execute("SELECT * FROM plans WHERE id=?", (plan_id,)).fetchone()
     limit = user["quota_override"] if user["quota_override"] is not None else plan["target_limit"]
+    purchased = db.execute("SELECT COALESCE(SUM(quantity),0) FROM purchases WHERE user_id=? AND status='credited'", (user["id"],)).fetchone()[0]
+    limit += purchased
     used = db.execute("SELECT COUNT(*) FROM targets WHERE owner_id=?", (user["id"],)).fetchone()[0]
     return {"plan_id": plan_id, "plan_name": plan["name"], "target_limit": limit, "target_used": used,
-            "plan_expires_at": user["plan_expires_at"]}
+            "plan_expires_at": user["plan_expires_at"], "purchased_quota": purchased}
 
 
 def owned_target(db, target_id, user):
@@ -243,6 +266,7 @@ def install(payload: InstallIn, request: Request):
         user_id = db.execute("INSERT INTO users(username,password_hash,role) VALUES(?,?,'admin')",
             (payload.username.lower(),hash_password(payload.password))).lastrowid
         db.execute("UPDATE targets SET owner_id=? WHERE owner_id IS NULL", (user_id,))
+        record_login(db, user_id, "register")
         tokens = create_session(db,user_id)
     for key, value in default_settings().items():
         set_setting(key, value)
@@ -260,8 +284,9 @@ def register(payload: InstallIn, request: Request):
         try:
             user_id = db.execute("INSERT INTO users(username,password_hash) VALUES(?,?)",
                 (payload.username.lower(),hash_password(payload.password))).lastrowid
-        except sqlite3.IntegrityError:
+        except IntegrityError:
             raise HTTPException(409, "账号已存在")
+        record_login(db, user_id, "register")
         return create_session(db,user_id)
 
 
@@ -272,6 +297,7 @@ def login(payload: LoginIn, request: Request):
         user = db.execute("SELECT * FROM users WHERE lower(username)=?", (payload.username.lower(),)).fetchone()
         if not user or user["disabled"] or not verify_password(payload.password,user["password_hash"]):
             raise HTTPException(401, "用户名或密码错误")
+        record_login(db, user["id"], "login")
         return create_session(db,user["id"])
 
 
@@ -344,7 +370,15 @@ def delete_account(user: User):
 @app.get("/api/dashboard")
 def dashboard(user: User):
     with get_db() as db:
-        counts = db.execute("SELECT COUNT(*) total, COALESCE(SUM(enabled),0) enabled, COALESCE(SUM(last_status='down'),0) down FROM targets WHERE owner_id=?", (user["id"],)).fetchone()
+        counts = db.execute(
+            """
+            SELECT COUNT(*) total,
+                   COALESCE(SUM(CASE WHEN enabled=1 THEN 1 ELSE 0 END), 0) enabled,
+                   COALESCE(SUM(CASE WHEN last_status='down' THEN 1 ELSE 0 END), 0) down
+            FROM targets WHERE owner_id=?
+            """,
+            (user["id"],),
+        ).fetchone()
         recent = db.execute("SELECT l.*,t.name target_name FROM monitor_logs l JOIN targets t ON t.id=l.target_id WHERE t.owner_id=? ORDER BY l.id DESC LIMIT 20", (user["id"],)).fetchall()
     return dict(counts) | {"recent": [_public_row(row) for row in recent]}
 
@@ -362,7 +396,7 @@ def create_target(payload: TargetIn, user: User):
         current = db.execute("SELECT * FROM users WHERE id=?",(user["id"],)).fetchone()
         usage = quota(db,current)
         if usage["target_used"] >= usage["target_limit"]:
-            raise HTTPException(403,"监测数量已达套餐上限，请联系管理员扩容")
+            raise HTTPException(403,"监测名额已用完，请在 iOS 我的账户中购买更多名额")
         target_id = db.execute("INSERT INTO targets(owner_id,name,url,enabled) VALUES(?,?,?,?)", (user["id"],payload.name,str(payload.url),int(payload.enabled))).lastrowid
         return _public_row(owned_target(db,target_id,user))
 
@@ -455,13 +489,13 @@ def unregister_device(payload: DeviceIn, user: User):
 @app.get("/api/plans")
 def plans(user: User):
     with get_db() as db:
-        return {"purchase_enabled": False,"plans": [dict(row) for row in db.execute("SELECT * FROM plans WHERE enabled=1")]}
+        return {"purchase_enabled": billing.configured(), "product_id": billing.PRODUCT_ID, "plans": [dict(row) for row in db.execute("SELECT * FROM plans WHERE enabled=1")]}
 
 
 @app.get("/api/admin/users")
 def users(admin: Admin, offset: int = Query(0,ge=0), limit: int = Query(100,ge=1,le=200)):
     with get_db() as db:
-        return [{"id":r["id"],"username":r["username"],"role":r["role"],"disabled":bool(r["disabled"]),"quota_override":r["quota_override"], **quota(db,r)} for r in db.execute("SELECT * FROM users ORDER BY id LIMIT ? OFFSET ?",(limit,offset)).fetchall()]
+        return [{"id":r["id"],"username":r["username"],"role":r["role"],"disabled":bool(r["disabled"]),"quota_override":r["quota_override"], "created_at":_to_local_time(r["created_at"]), "last_login_at":_to_local_time(r["last_login_at"]), **quota(db,r)} for r in db.execute("SELECT * FROM users ORDER BY id LIMIT ? OFFSET ?",(limit,offset)).fetchall()]
 
 
 class EntitlementIn(BaseModel):
@@ -532,3 +566,64 @@ def save_sms_settings(payload: SmsSettingsIn, _: Annotated[str, Depends(require_
 def save_email_settings(payload: EmailSettingsIn, _: Annotated[str, Depends(require_admin)]):
     set_setting("email", payload.model_dump())
     return {"ok": True}
+
+
+class PurchaseIn(BaseModel):
+    signed_transaction: str = Field(min_length=20, max_length=40000)
+
+
+@app.get("/api/iap/context")
+def purchase_context(user: User):
+    with get_db() as db:
+        token = billing.account_token(db, user["id"])
+    return {"enabled": billing.configured(), "product_id": billing.PRODUCT_ID, "app_account_token": token}
+
+
+@app.post("/api/iap/transactions")
+def purchase_transaction(payload: PurchaseIn, user: User):
+    rate_limit("iap:" + str(user["id"]), 120)
+    transaction = billing.verify_signed(payload.signed_transaction)
+    with get_db() as db:
+        db.execute("BEGIN IMMEDIATE")
+        purchase_id = billing.apply_transaction(db, transaction, user)
+        result = db.execute("SELECT status FROM purchases WHERE id=?", (purchase_id,)).fetchone()
+    return {"ok": True, "status": result["status"]}
+
+
+class AppleNotificationIn(BaseModel):
+    signedPayload: str = Field(min_length=20, max_length=80000)
+
+
+@app.post("/api/iap/notifications")
+def apple_notification(payload: AppleNotificationIn):
+    notification = billing.verify_signed(payload.signedPayload, notification=True)
+    event = getattr(notification.notificationType, "value", notification.notificationType)
+    if event in {"ONE_TIME_CHARGE", "REFUND", "REVOKE", "REFUND_REVERSED"}:
+        if not notification.data or not notification.data.signedTransactionInfo or not notification.signedDate:
+            raise HTTPException(400, "通知缺少交易数据")
+        transaction = billing.verify_signed(notification.data.signedTransactionInfo)
+        if transaction.environment != notification.data.environment:
+            raise HTTPException(400, "交易环境不一致")
+        if transaction.productId == billing.PRODUCT_ID:
+            with get_db() as db:
+                db.execute("BEGIN IMMEDIATE")
+                billing.apply_transaction(db, transaction, event=event, event_date=notification.signedDate)
+    return {"ok": True}
+
+
+@app.get("/api/admin/purchases")
+def admin_purchases(admin: Admin, user_id: int | None = Query(None, ge=1), offset: int = Query(0,ge=0), limit: int = Query(50,ge=1,le=200)):
+    with get_db() as db:
+        where, args = (" WHERE user_id=?", [user_id]) if user_id else ("", [])
+        total = db.execute("SELECT COUNT(*) FROM purchases" + where, args).fetchone()[0]
+        rows = db.execute("SELECT id,user_id,username,environment,transaction_id,product_id,quantity,price_milli,currency,purchased_at,status,created_at,updated_at FROM purchases" + where + " ORDER BY id DESC LIMIT ? OFFSET ?", [*args, limit, offset]).fetchall()
+        return {"total": total, "items": [_public_row(row) for row in rows]}
+
+
+@app.get("/api/admin/logins")
+def admin_logins(admin: Admin, user_id: int | None = Query(None, ge=1), offset: int = Query(0,ge=0), limit: int = Query(50,ge=1,le=200)):
+    with get_db() as db:
+        where, args = (" WHERE user_id=?", [user_id]) if user_id else ("", [])
+        total = db.execute("SELECT COUNT(*) FROM login_events" + where, args).fetchone()[0]
+        rows = db.execute("SELECT * FROM login_events" + where + " ORDER BY id DESC LIMIT ? OFFSET ?", [*args, limit, offset]).fetchall()
+        return {"total": total, "items": [_public_row(row) for row in rows]}

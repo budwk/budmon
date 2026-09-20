@@ -23,7 +23,6 @@ struct StatusPill: View {
 
 struct AuthView: View {
     @EnvironmentObject var store: Store
-    @State private var server = UserDefaults.standard.string(forKey:"server") ?? "http://localhost:8000"
     @State private var username = ""
     @State private var password = ""
     @State private var register = false
@@ -39,13 +38,12 @@ struct AuthView: View {
                 Surface {
                     VStack(alignment:.leading,spacing:20) {
                         Picker("账号",selection:$register) { Text("登录").tag(false); Text("注册账号").tag(true) }.pickerStyle(.segmented)
-                        field("服务器地址") { TextField("https://monitor.example.com",text:$server).accessibilityIdentifier("server").keyboardType(.URL) }
                         field("用户名") { TextField("至少 3 位字母、数字或 _ . -",text:$username).accessibilityIdentifier("username").textContentType(.username) }
                         field("密码") { SecureField("至少 8 位",text:$password).accessibilityIdentifier("password").textContentType(.password) }
-                        Button { Task { await store.login(username:username,password:password,server:server,register:register) } } label: {
+                        Button { Task { await store.login(username:username,password:password,register:register) } } label: {
                             HStack { Spacer(); if store.loading { ProgressView() } else { Text(register ? "创建账号" : "进入控制台").fontWeight(.bold); Image(systemName:"arrow.right") }; Spacer() }.padding(.vertical,9)
                         }.buttonStyle(.borderedProminent).disabled(store.loading || username.isEmpty || password.isEmpty)
-                        Text(register ? "注册即享 5 个监测目标。服务器需先在网页完成初始化。" : "使用与网页端相同的账号登录，监测数据自动同步。")
+                        Text(register ? "注册即享 5 个监测目标，可随时购买更多名额。" : "使用与网页端相同的账号登录，监测数据自动同步。")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -393,7 +391,18 @@ struct AccountView: View {
                     LabeledContent(profile.plan_name,value:"\(profile.target_used) / \(profile.target_limit)")
                     ProgressView(value:Double(min(profile.target_used,profile.target_limit)),total:Double(max(1,profile.target_limit))).tint(.mint)
                     if let date = profile.plan_expires_at { Text("套餐到期：\(date) UTC").font(.caption) }
-                    Text("需要更多监测数量？请联系服务管理员扩容。在线购买将在后续版本开放。").font(.caption).foregroundStyle(.secondary)
+                    LabeledContent("永久已购名额", value: "\(profile.purchased_quota ?? 0) 个")
+                    Text("每份永久增加 1 个监测名额，可重复购买，累计数量不限。名额绑定当前 BudMon 账号，换设备后登录同一账号即可使用。").font(.caption).foregroundStyle(.secondary)
+                    if let product = store.purchaseProduct {
+                        Button(store.purchasing ? "正在处理购买…" : "购买 1 个名额 · \(product.displayPrice)") {
+                            Task { await store.purchaseSlot() }
+                        }.disabled(store.purchasing || !store.purchaseAvailable)
+                        Text("价格以 App Store 确认页面为准。").font(.caption).foregroundStyle(.secondary)
+                    } else {
+                        Button("加载购买选项") { Task { await store.loadPurchases() } }.disabled(store.purchasing)
+                    }
+                    Button("同步未完成购买 / 刷新名额") { Task { await store.syncPurchases() } }.disabled(store.purchasing)
+                    if let message = store.purchaseMessage { Text(message).font(.caption).foregroundStyle(.secondary) }
                 }
                 Section("即时通知") {
                     Toggle("接收推送告警",isOn:Binding(get:{store.profile?.push_enabled ?? true},set:{ value in
@@ -424,7 +433,7 @@ struct AccountView: View {
                 Section {
                     Button(signingOut ? "正在退出…" : "退出登录",role:.destructive) { signingOut = true; Task { await store.logout(); signingOut = false } }.disabled(signingOut)
                     if profile.role != "admin" { Button("删除账号",role:.destructive) { deleting = true } }
-                } footer: { Text("BudMon 2.0 · 为每一次稳定在线\n服务器：\(UserDefaults.standard.string(forKey:"server") ?? "")") }
+                } footer: { Text("BudMon 2.0 · 为每一次稳定在线") }
             } else { Button("重新加载账号") { Task { await store.reload() } } }
         }.navigationTitle("我的账户")
             .confirmationDialog("永久删除账号、全部监测目标及历史记录？此操作不可恢复。",isPresented:$deleting,titleVisibility:.visible) {

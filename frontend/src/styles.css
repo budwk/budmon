@@ -69,6 +69,264 @@ body {
   border-radius: 8px;
 }
 
+.admin-page {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.page-heading .ant-typography {
+  margin-top: 0;
+}
+
+.page-heading h3.ant-typography {
+  margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+
+.summary-grid {
+  margin-bottom: 16px;
+}
+
+.summary-card {
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid #e9eef5;
+  box-shadow: 0 5px 18px rgba(30, 64, 175, 0.04);
+}
+
+.summary-card .ant-statistic-content-prefix {
+  display: inline-flex;
+  margin-right: 10px;
+  color: #1677ff;
+}
+
+.management-card {
+  border: 1px solid #e7ecf3;
+  box-shadow: 0 10px 28px rgba(31, 41, 55, 0.05);
+}
+
+.management-card > .ant-card-body {
+  padding: 20px;
+}
+
+.list-toolbar,
+.panel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.list-toolbar {
+  margin: 18px 0 14px;
+}
+
+.user-search {
+  width: min(320px, 100%);
+}
+
+.panel-toolbar {
+  min-height: 46px;
+}
+
+.panel-toolbar .ant-tabs {
+  flex: 1;
+}
+
+.panel-toolbar .ant-tabs-nav {
+  margin-bottom: 12px;
+}
+
+.cell-title {
+  color: #111827;
+  font-weight: 600;
+}
+
+.sub-line {
+  margin-top: 7px;
+  color: #8a94a3;
+  font-size: 12px;
+}
+
+.admin-table .ant-table {
+  border: 1px solid #edf0f4;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.admin-table .ant-table-thead > tr > th {
+  color: #667085;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-table .ant-table-tbody > tr > td {
+  padding-top: 15px;
+  padding-bottom: 15px;
+}
+
+.admin-table .ant-table-tbody > tr:hover > td {
+  background: #f8fbff !important;
+}
+
+.transaction-id {
+  display: inline-block;
+  max-width: 250px;
+  margin-top: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.quota-change {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.quota-change small {
+  display: block;
+  margin-top: -2px;
+  color: #98a2b3;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.quota-change.positive {
+  color: #16a34a;
+}
+
+.quota-change.negative {
+  color: #dc2626;
+}
+
+.time-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #344054;
+  font-size: 13px;
+}
+
+.time-stack .ant-typography {
+  display: inline-block;
+  min-width: 34px;
+  margin-right: 7px;
+  font-size: 12px;
+}
+
+.record-stats {
+  margin: 2px 0 14px;
+}
+
+.mini-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 68px;
+  padding: 13px 16px;
+  color: #475467;
+  background: #f7f9fc;
+  border: 1px solid #e9edf3;
+  border-radius: 8px;
+}
+
+.mini-stat strong {
+  color: #111827;
+  font-size: 24px;
+}
+
+.mini-stat.success {
+  color: #16803a;
+  background: #f2fbf5;
+  border-color: #d8f1df;
+}
+
+.mini-stat.success strong {
+  color: #15803d;
+}
+
+.mini-stat.danger {
+  color: #b42318;
+  background: #fff7f6;
+  border-color: #fee2df;
+}
+
+.mini-stat.danger strong {
+  color: #b42318;
+}
+
+.table-note {
+  margin-bottom: 12px;
+}
+
+.quota-progress strong {
+  color: #111827;
+  font-size: 18px;
+}
+
+.quota-progress span {
+  color: #667085;
+  font-size: 13px;
+}
+
+.quota-progress .ant-progress {
+  max-width: 170px;
+  margin-top: 5px;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 18px;
+}
+
+.drawer-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+  padding: 16px;
+  background: linear-gradient(135deg, #f1f6ff, #f7faff);
+  border: 1px solid #dfebff;
+  border-radius: 8px;
+}
+
+.drawer-user .ant-typography {
+  margin: 0;
+}
+
+.form-section-title {
+  margin: 24px 0 14px;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.status-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  background: #fafafa;
+  border: 1px solid #e7e7e7;
+  border-radius: 8px;
+}
+
 @media (max-width: 768px) {
   .content {
     padding: 16px;
@@ -77,5 +335,24 @@ body {
   .topbar {
     height: auto;
     padding: 12px;
+  }
+
+  .page-heading,
+  .list-toolbar,
+  .panel-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .panel-toolbar .ant-tabs-nav {
+    margin-bottom: 0;
+  }
+
+  .management-card > .ant-card-body {
+    padding: 14px;
+  }
+
+  .user-search {
+    width: 100%;
   }
 }

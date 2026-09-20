@@ -62,7 +62,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             .onReceive(NotificationCenter.default.publisher(for:.openTarget)) { _ in openPending() }
             .onChange(of:store.authenticated) { _, _ in openPending() }
             .onChange(of:phase) { _, phase in
-                if phase == .active && store.authenticated { Task { await store.reload() } }
+                if phase == .active && store.authenticated { Task { await store.syncPurchases(); await store.reload() } }
             }
         }
     }

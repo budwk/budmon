@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import socket
 import smtplib
 import ssl
@@ -18,11 +19,18 @@ from .database import default_settings, get_db, get_setting, merge_defaults
 from .sms import send_sms
 from .network import probe, resolve_public
 from .push import enqueue, drain_push
-from .retention import prune_history, prune_target_logs
+from .retention import prune_history
 
 _scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
 _lock = threading.Lock()
 logger = logging.getLogger("budmon.monitor")
+
+
+def _env_int(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        return min(maximum, max(minimum, int(os.getenv(name, str(default)))))
+    except ValueError:
+        return default
 
 
 def _lines(value: str) -> list[str]:
@@ -301,38 +309,85 @@ def _check_certificate(target, cert_expire_days: int, today: str) -> None:
             )
 
 
+def _certificate_check_due(value, interval_seconds: int) -> bool:
+    if not value:
+        return True
+    try:
+        checked_at = value if isinstance(value, datetime) else datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if checked_at.tzinfo is None:
+            checked_at = checked_at.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - checked_at.astimezone(timezone.utc)).total_seconds() >= interval_seconds
+    except (TypeError, ValueError):
+        return True
+
+
 def run_check_once(owner_id=None) -> bool:
     if not _lock.acquire(blocking=False):
         logger.warning("上一轮监控尚未结束，本轮跳过")
         return False
+    started_monotonic = time.monotonic()
     started_at = datetime.now().isoformat(timespec="seconds")
     logger.info("监控任务开始 started_at=%s", started_at)
     try:
         monitor_cfg = merge_defaults(get_setting("monitor", {}), default_settings()["monitor"])
         retry_delay = int(monitor_cfg.get("retry_delay_seconds", 5))
         cert_expire_days = int(monitor_cfg.get("cert_expire_days", 5))
+        interval_seconds = max(int(monitor_cfg.get("interval_seconds", 60)), 10)
+        batch_size = _env_int("BUDMON_MONITOR_BATCH_SIZE", 250, 10, 2000)
+        workers = _env_int("BUDMON_MONITOR_WORKERS", 16, 1, 64)
+        cert_interval = _env_int("BUDMON_CERT_CHECK_INTERVAL_SECONDS", 21600, 300, 86400)
         today = datetime.now(timezone.utc).date().isoformat()
-        with get_db() as db:
-            targets = db.execute("SELECT t.* FROM targets t JOIN users u ON u.id=t.owner_id WHERE t.enabled=1 AND u.disabled=0 AND (? IS NULL OR owner_id=?)", (owner_id,owner_id)).fetchall()
-
         logger.info(
-            "监控任务配置 interval=%s retry_delay=%s cert_expire_days=%s enabled_targets=%s notify_methods=%s",
-            monitor_cfg.get("interval_seconds"),
+            "监控任务配置 interval=%s retry_delay=%s cert_expire_days=%s cert_interval=%s batch_size=%s workers=%s notify_methods=%s",
+            interval_seconds,
             retry_delay,
             cert_expire_days,
-            len(targets),
+            cert_interval,
+            batch_size,
+            workers,
             monitor_cfg.get("notify_methods"),
         )
+
         def check(target):
             try:
                 _check_service(target, retry_delay)
-                _check_certificate(target, cert_expire_days, today)
-                prune_target_logs(target["id"])
+                if owner_id is not None or _certificate_check_due(target["last_cert_checked_at"], cert_interval):
+                    _check_certificate(target, cert_expire_days, today)
             except Exception:
                 logger.exception("目标检测失败 target_id=%s", target["id"])
-        with ThreadPoolExecutor(max_workers=8, thread_name_prefix="probe") as pool:
-            list(pool.map(check, targets))
-        logger.info("监控任务结束 started_at=%s target_count=%s", started_at, len(targets))
+
+        target_count = 0
+        last_id = 0
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="probe") as pool:
+            while True:
+                sql = (
+                    "SELECT t.* FROM targets t "
+                    "JOIN users u ON u.id=t.owner_id "
+                    "WHERE t.enabled=1 AND u.disabled=0 AND t.id>?"
+                )
+                params = [last_id]
+                if owner_id is not None:
+                    sql += " AND t.owner_id=?"
+                    params.append(owner_id)
+                sql += " ORDER BY t.id LIMIT ?"
+                params.append(batch_size)
+                with get_db() as db:
+                    targets = db.execute(sql, params).fetchall()
+                if not targets:
+                    break
+                list(pool.map(check, targets))
+                target_count += len(targets)
+                last_id = targets[-1]["id"]
+
+        duration = time.monotonic() - started_monotonic
+        log = logger.warning if owner_id is None and duration > interval_seconds else logger.info
+        log(
+            "监控任务结束 started_at=%s target_count=%s duration_seconds=%.2f interval_seconds=%s",
+            started_at,
+            target_count,
+            duration,
+            interval_seconds,
+        )
     except Exception:
         logger.exception("监控任务异常")
     finally:
@@ -344,8 +399,10 @@ def start_scheduler() -> None:
     if not _scheduler.running:
         _scheduler.start()
         logger.info("监控调度器已启动")
-    _scheduler.add_job(drain_push, "interval", seconds=5, id="push-outbox", replace_existing=True, max_instances=1)
-    _scheduler.add_job(prune_history, "interval", minutes=5, id="history-retention", replace_existing=True, max_instances=1, next_run_time=datetime.now())
+    push_interval = _env_int("BUDMON_PUSH_INTERVAL_SECONDS", 2, 1, 60)
+    retention_interval = _env_int("BUDMON_RETENTION_INTERVAL_MINUTES", 15, 1, 1440)
+    _scheduler.add_job(drain_push, "interval", seconds=push_interval, id="push-outbox", replace_existing=True, max_instances=1)
+    _scheduler.add_job(prune_history, "interval", minutes=retention_interval, id="history-retention", replace_existing=True, max_instances=1, next_run_time=datetime.now())
     reload_scheduler()
 
 

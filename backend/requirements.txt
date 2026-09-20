@@ -1,11 +1,17 @@
-fastapi==0.115.6
+fastapi==0.115.6; python_version < '3.14'
+fastapi==0.118.3; python_version >= '3.14'
 uvicorn[standard]==0.34.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
-pydantic==2.10.4
+pydantic==2.10.4; python_version < '3.14'
+pydantic==2.12.5; python_version >= '3.14'
 APScheduler==3.10.4
 requests==2.32.3
 aliyun-python-sdk-core==2.16.0
 aliyun-python-sdk-dysmsapi==2.1.2
 httpx[http2]==0.28.1
+app-store-server-library==3.1.2
+psycopg[binary]>=3.2.0
+psycopg-pool>=3.2.0
+

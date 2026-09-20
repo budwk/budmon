@@ -13,6 +13,7 @@ struct Profile: Codable {
     let plan_name: String
     let target_limit: Int
     let target_used: Int
+    let purchased_quota: Int?
     let plan_expires_at: String?
 }
 struct Target: Codable, Identifiable, Hashable {
@@ -60,4 +61,15 @@ extension Error {
         let value = self as NSError
         return value.domain == NSURLErrorDomain && value.code == NSURLErrorCancelled
     }
+}
+
+
+struct PurchaseContext: Decodable {
+    let enabled: Bool
+    let product_id: String
+    let app_account_token: UUID
+}
+struct PurchaseAcknowledgement: Decodable {
+    let ok: Bool
+    let status: String
 }

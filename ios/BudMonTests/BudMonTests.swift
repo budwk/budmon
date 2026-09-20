@@ -2,22 +2,23 @@ import XCTest
 import UserNotifications
 @testable import BudMon
 final class BudMonTests: XCTestCase {
-    func testServerValidation() throws {
-        XCTAssertEqual(try API.validatedServer(" https://monitor.example.com/ "),"https://monitor.example.com")
-        XCTAssertNoThrow(try API.validatedServer("http://localhost:8000"))
-        XCTAssertNoThrow(try API.validatedServer("http://example.com"))
-        XCTAssertEqual(try API.validatedServer("http://203.0.113.10:9977/"), "http://203.0.113.10:9977")
-        XCTAssertThrowsError(try API.validatedServer("ftp://example.com"))
-        XCTAssertThrowsError(try API.validatedServer("https://user:pass@example.com"))
-        XCTAssertThrowsError(try API.validatedServer("https://example.com/api"))
-    }
-    func testHTTPTransportConfiguration() {
-        let ats = Bundle.main.object(forInfoDictionaryKey: "NSAppTransportSecurity") as? [String: Any]
-        XCTAssertEqual(ats?["NSAllowsArbitraryLoads"] as? Bool, true)
-        // On modern iOS, these keys override NSAllowsArbitraryLoads even when false.
-        for key in ["NSAllowsLocalNetworking", "NSAllowsArbitraryLoadsForMedia", "NSAllowsArbitraryLoadsInWebContent"] {
-            XCTAssertNil(ats?[key])
+    func testLegacyServerSettingCannotChangeAPIRequests() async throws {
+        let previous = UserDefaults.standard.object(forKey: "server")
+        UserDefaults.standard.set("http://old-self-hosted.example:8000", forKey: "server")
+        defer {
+            if let previous { UserDefaults.standard.set(previous, forKey: "server") }
+            else { UserDefaults.standard.removeObject(forKey: "server") }
         }
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [FixedEndpointProtocol.self]
+        let api = API(session: URLSession(configuration: config))
+        let result: Acknowledgement = try await api.request("/auth/login", method: "POST",
+            body: ["username": "test", "password": "not-sent-to-network"], authenticated: false)
+        XCTAssertTrue(result.ok)
+    }
+    func testHTTPSOnlyTransportConfiguration() {
+        let ats = Bundle.main.object(forInfoDictionaryKey: "NSAppTransportSecurity") as? [String: Any]
+        XCTAssertNotEqual(ats?["NSAllowsArbitraryLoads"] as? Bool, true)
     }
     @MainActor func testPushConfigurationStatusDistinguishesUnknownFromUnconfigured() {
         let unknown = Store.pushStatusMessage(configured:nil,authorization:.authorized)
@@ -41,4 +42,20 @@ final class BudMonTests: XCTestCase {
         XCTAssertEqual(target.statusLabel,"服务异常")
         XCTAssertNil(target.last_cert_days)
     }
+}
+
+
+private final class FixedEndpointProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        XCTAssertEqual(request.url?.absoluteString, "https://budmon.budwk.com/api/auth/login")
+        XCTAssertEqual(request.httpMethod, "POST")
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil,
+            headerFields: ["Content-Type": "application/json"])!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(#"{"ok":true}"#.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
 }
