@@ -54,6 +54,10 @@ actor API {
     private func transport<T: Decodable>(_ path: String, method: String, body: [String: Any]?, token: String?) async throws -> (T?, Int, String) {
         guard let url = URL(string: Self.base + path) else { throw APIError(message: "服务器地址无效") }
         var request = URLRequest(url: url)
+        if path == "/iap/context" {
+            request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            request.setValue("no-cache, no-store", forHTTPHeaderField: "Cache-Control")
+        }
         request.httpMethod = method
         request.timeoutInterval = path == "/monitor/run" ? 300 : 25
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

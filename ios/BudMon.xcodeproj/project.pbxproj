@@ -12,7 +12,6 @@
 		2E8ED981E510C6EC0E813F4E /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = E426E4420D014F29BC5C6F55 /* API.swift */; };
 		626D6C2F040EA6E3314057BD /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 481C40B38967C2F26A657A9B /* Assets.xcassets */; };
 		9374F603A04105CFD58388AA /* FlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76AF12D5C1CB18D7B70ED07E /* FlowTests.swift */; };
-		9DE0D52A30601824004B392A /* Test.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 9DE0D52930601824004B392A /* Test.storekit */; };
 		BAAE32653D0151CD42776D95 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 219537F3ACF05EBA9562DCA9 /* Models.swift */; };
 		BC5CEF7D3EB789468C8E3328 /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3EE4BFE9F11A226F30AD162 /* Store.swift */; };
 		EE15924B3AEF07EF83DC3D7D /* BudMonApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68D00F0D7780556BCF2C4AA2 /* BudMonApp.swift */; };
@@ -43,7 +42,6 @@
 		76AF12D5C1CB18D7B70ED07E /* FlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowTests.swift; sourceTree = "<group>"; };
 		7F81FE6322DDD4570EAE52F6 /* BudMonTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BudMonTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		95DF15C00250AB66E2CFDE40 /* BudMonUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BudMonUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		9DE0D52930601824004B392A /* Test.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Test.storekit; sourceTree = "<group>"; };
 		B3EE4BFE9F11A226F30AD162 /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
 		BC7285524B49AFDC3A2BCC0B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		E426E4420D014F29BC5C6F55 /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
@@ -71,7 +69,6 @@
 		6168FCA9DEB3A3DC630F782F = {
 			isa = PBXGroup;
 			children = (
-				9DE0D52930601824004B392A /* Test.storekit */,
 				2D4599EF054BDC4813DD99D7 /* BudMon */,
 				CF9EF00A55939CA1B406C00B /* BudMonTests */,
 				7834C8D7FCA798BFD646F74E /* BudMonUITests */,
@@ -206,7 +203,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9DE0D52A30601824004B392A /* Test.storekit in Resources */,
 				626D6C2F040EA6E3314057BD /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -360,7 +356,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BudMon/BudMon.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = DPBBH6KM6G;
 				INFOPLIST_FILE = BudMon/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = BudMon;
@@ -386,7 +382,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BudMon/BudMon.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 5;
 				DEVELOPMENT_TEAM = DPBBH6KM6G;
 				INFOPLIST_FILE = BudMon/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = BudMon;

@@ -410,21 +410,19 @@ struct AccountView: View {
                     }.padding(.vertical,12)
                 }
                 Section("监测额度") {
-                    LabeledContent(profile.plan_name,value:"\(profile.target_used) / \(profile.target_limit)")
+                    LabeledContent("监测总额度",value:"\(profile.target_used) / \(profile.target_limit)")
                     ProgressView(value:Double(min(profile.target_used,profile.target_limit)),total:Double(max(1,profile.target_limit))).tint(.mint)
                     if let date = profile.plan_expires_at { Text("套餐到期：\(date) UTC").font(.caption) }
                     LabeledContent("永久已购名额", value: "\(profile.purchased_quota ?? 0) 个")
                     Text("每份永久增加 1 个监测名额，可重复购买，累计数量不限。名额绑定当前 BudMon 账号，换设备后登录同一账号即可使用。").font(.caption).foregroundStyle(.secondary)
                     if let product = store.purchaseProduct {
-                        Text(product.displayName).font(.headline)
-                        Button(store.purchasing ? "正在处理购买…" : "购买 1 个名额 · \(product.displayPrice)") {
+                        Button(store.purchasing ? "正在处理购买…" : "购买 1个永久监测目标 · \(product.displayPrice)") {
                             Task { await store.purchaseSlot() }
                         }.disabled(store.purchasing || !store.purchaseAvailable)
-                        Text("价格以 App Store 确认页面为准。").font(.caption).foregroundStyle(.secondary)
                     } else {
                         Button("加载购买选项") { Task { await store.loadPurchases() } }.disabled(store.purchasing)
                     }
-                    Button("同步未完成购买 / 刷新名额") { Task { await store.syncPurchases() } }.disabled(store.purchasing)
+                    Button("同步额度") { Task { await store.syncPurchases() } }.disabled(store.purchasing)
                     if let message = store.purchaseMessage { Text(message).font(.caption).foregroundStyle(.secondary) }
                 }
                 Section("即时通知") {

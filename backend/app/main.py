@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import base64
+import json
 import logging
+import os
 import secrets
 import sqlite3
 import time
@@ -11,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, HTTPException, status, Request, Query
+from fastapi import Depends, FastAPI, HTTPException, status, Request, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field, HttpUrl, field_validator
@@ -713,10 +715,24 @@ class PurchaseIn(BaseModel):
 
 
 @app.get("/api/iap/context")
-def purchase_context(user: User):
+def purchase_context(user: User, response: Response):
+    print("APPLE_APP_ID =", repr(os.getenv("APPLE_APP_ID")), flush=True)
     with get_db() as db:
         token = billing.account_token(db, user["id"])
-    return {"enabled": billing.configured(), "product_id": billing.PRODUCT_ID, "app_account_token": token}
+    enabled = billing.configured()
+    response.headers["Cache-Control"] = "no-store"
+    result = {"enabled": enabled, "product_id": billing.PRODUCT_ID, "app_account_token": token}
+    # Print immediately even when application INFO logging is filtered by the host.
+    print("GET /api/iap/context response:", json.dumps(
+        {**result, "app_account_token": "[REDACTED]"}, ensure_ascii=False,
+    ), "runtime:", json.dumps({
+        "pid": os.getpid(),
+        "apple_app_id_repr": repr(os.getenv("APPLE_APP_ID")),
+        "billing_module": billing.__file__,
+        "configured_code": billing.configured.__code__.co_filename,
+        "configured_code": billing.configured.__code__.co_filename,
+    }, ensure_ascii=False), flush=True)
+    return result
 
 
 @app.post("/api/iap/transactions")

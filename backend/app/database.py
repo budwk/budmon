@@ -13,8 +13,8 @@ from urllib.parse import parse_qsl, quote, unquote, urlsplit
 logger = logging.getLogger("budmon.database")
 
 
-def _load_env() -> None:
-    candidates = [
+def _load_env(candidates=None) -> None:
+    candidates = candidates if candidates is not None else [
         Path("/data/budmon/.env"),
         Path("/data/budmon/budmon.env"),
         Path("/etc/budmon/budmon.env"),
@@ -22,6 +22,7 @@ def _load_env() -> None:
         Path(os.getenv("BUDMON_DATA_DIR", "/data")) / "budmon.env",
         Path(__file__).resolve().parent.parent.parent / ".env",
         Path(__file__).resolve().parent.parent.parent / "budmon.env",
+        Path(__file__).resolve().parent.parent / ".env",
         Path.cwd() / ".env",
         Path.cwd() / "budmon.env",
     ]
@@ -36,6 +37,12 @@ def _load_env() -> None:
                         k, v = line.split("=", 1)
                         k = k.strip()
                         v = v.strip().strip("'\"")
+                        # Empty deployment placeholders must not hide real IAP
+                        # settings in a later file (including backend/.env).
+                        if k in {"APPLE_APP_ID", "APPLE_BUNDLE_ID", "APPLE_ALLOW_SANDBOX"}:
+                            if v and not os.environ.get(k, "").strip():
+                                os.environ[k] = v
+                            continue
                         if k and k not in os.environ:
                             os.environ[k] = v
             except Exception:

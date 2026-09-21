@@ -1,6 +1,7 @@
 import SwiftUI
 import StoreKit
 import UserNotifications
+import OSLog
 
 @MainActor final class Store: ObservableObject {
     @Published var authenticated = false
@@ -119,21 +120,31 @@ import UserNotifications
 
     func loadPurchases() async {
         guard authenticated else { return }
+        purchaseMessage = "正在加载购买选项…"
         purchaseAvailable = false
         purchaseProduct = nil
         purchaseContext = nil
         let accountID = profile?.id
         do {
             let context: PurchaseContext = try await API.shared.request("/iap/context")
+            guard authenticated, profile?.id == accountID, !Task.isCancelled else { return }
+            Logger(subsystem:"com.budwk.app.budmon", category:"IAP").info("IAP context: enabled=\(context.enabled) product_id=\(context.product_id, privacy:.public)")
             guard context.enabled else {
                 purchaseMessage = "服务端尚未启用内购，请稍后重试。"
                 return
             }
             guard context.product_id == "com.budwk.app.budmon.1" else { throw APIError(message: "商品配置不一致") }
             let products = try await Product.products(for: [context.product_id])
+            print("IAP products: requested=\(context.product_id) bundle=\(Bundle.main.bundleIdentifier ?? "nil") count=\(products.count)")
+            for product in products {
+                print("IAP product: id=\(product.id) type=\(product.type) name=\(product.displayName) price=\(product.displayPrice)")
+            }
             guard authenticated, profile?.id == accountID else { return }
-            guard let product = products.first, product.type == .consumable else {
-                throw APIError(message: "暂未获取到商品，请确认 App Store 账号及网络后重试")
+            guard let product = products.first(where: { $0.id == context.product_id }) else {
+                throw APIError(message: "App Store 暂未返回此商品，请稍后重新加载购买选项。")
+            }
+            guard product.type == .consumable else {
+                throw APIError(message: "商品类型配置不一致，暂时无法购买。")
             }
             purchaseContext = context
             purchaseProduct = product
