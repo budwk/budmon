@@ -55,14 +55,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             } message: { Text(store.error ?? "") }
             .onReceive(NotificationCenter.default.publisher(for:.sessionExpired)) { _ in store.expire() }
             .onReceive(NotificationCenter.default.publisher(for:.pushToken)) { event in
-                if let token = event.object as? String { store.pushToken = token; Task { await store.registerDevice() } }
+                if let token = event.object as? String { store.pushToken = token; Task { await store.registerDevice(showErrors: false) } }
                 else { store.pushStatus = "推送注册失败，请检查签名及网络" }
             }
-            .onReceive(NotificationCenter.default.publisher(for:.refreshData)) { _ in if store.authenticated { Task { await store.reload() } } }
+            .onReceive(NotificationCenter.default.publisher(for:.refreshData)) { _ in if store.authenticated { Task { await store.reload(showErrors: false) } } }
             .onReceive(NotificationCenter.default.publisher(for:.openTarget)) { _ in openPending() }
             .onChange(of:store.authenticated) { _, _ in openPending() }
-            .onChange(of:phase) { _, phase in
-                if phase == .active && store.authenticated { Task { await store.syncPurchases(); await store.reload() } }
+            .task(id: phase) {
+                // SwiftUI cancels this work when the app leaves the foreground.
+                guard phase == .active, !store.booting, store.authenticated else { return }
+                await store.syncPurchases(showErrors: false)
             }
         }
     }

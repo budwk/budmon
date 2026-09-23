@@ -640,6 +640,16 @@ def users(admin: Admin, offset: int = Query(0,ge=0), limit: int = Query(100,ge=1
         return [{"id":r["id"],"username":r["username"],"role":r["role"],"disabled":bool(r["disabled"]),"quota_override":r["quota_override"], "created_at":_to_local_time(r["created_at"]), "last_login_at":_to_local_time(r["last_login_at"]), **quota(db,r)} for r in db.execute("SELECT * FROM users ORDER BY id LIMIT ? OFFSET ?",(limit,offset)).fetchall()]
 
 
+@app.get("/api/admin/users/{user_id}/targets")
+def admin_user_targets(user_id: int, admin: Admin, offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200)):
+    with get_db() as db:
+        if not db.execute("SELECT 1 FROM users WHERE id=?", (user_id,)).fetchone():
+            raise HTTPException(404, "用户不存在")
+        total = db.execute("SELECT COUNT(*) FROM targets WHERE owner_id=?", (user_id,)).fetchone()[0]
+        rows = db.execute("SELECT * FROM targets WHERE owner_id=? ORDER BY id DESC LIMIT ? OFFSET ?", (user_id, limit, offset)).fetchall()
+        return {"total": total, "items": [_public_row(row) for row in rows]}
+
+
 class EntitlementIn(BaseModel):
     plan_id: str = "free"
     quota_override: int | None = Field(None,ge=0,le=10000)

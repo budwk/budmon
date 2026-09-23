@@ -73,6 +73,7 @@ struct HomeView: View {
 
 struct OverviewView: View {
     @EnvironmentObject var store: Store
+    @Environment(\.scenePhase) private var phase
     @State private var adding = false
     @State private var query = ""
     @State private var filter = "全部"
@@ -116,7 +117,7 @@ struct OverviewView: View {
                         running = true
                         Task {
                             do { let _: Acknowledgement = try await API.shared.request("/monitor/run",method:"POST"); await store.reload() }
-                            catch { store.error = error.localizedDescription }
+                            catch { store.error = error.requestErrorMessage }
                             running = false
                         }
                     }.font(.caption).disabled(running || store.targets.isEmpty)
@@ -157,10 +158,12 @@ struct OverviewView: View {
         }.background(canvas).toolbar(.hidden,for:.navigationBar)
             .refreshable { await store.reload() }
             .sheet(isPresented:$adding) { TargetEditor(target:nil) }
-            .task {
+            .task(id: phase) {
+                guard phase == .active else { return }
                 while !Task.isCancelled {
-                    await store.reload()
+                    // Boot and foreground activation already perform the initial refresh.
                     do { try await Task.sleep(for:.seconds(30)) } catch { break }
+                    await store.reload(showErrors: false)
                 }
             }
     }
@@ -225,7 +228,7 @@ struct TargetEditor: View {
         do {
             let _: Target = try await API.shared.request(target.map { "/targets/\($0.id)" } ?? "/targets",method:target == nil ? "POST" : "PUT",body:["name":name.trimmingCharacters(in:.whitespaces),"url":url,"enabled":enabled])
             await store.reload(); dismiss()
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = error.requestErrorMessage }
     }
 }
 
@@ -308,7 +311,7 @@ struct TargetDetailView: View {
                 Button("删除目标",role:.destructive) {
                     Task {
                         do { let _: Acknowledgement = try await API.shared.request("/targets/\(id)",method:"DELETE"); await store.reload(); dismiss() }
-                        catch { store.error = error.localizedDescription }
+                        catch { store.error = error.requestErrorMessage }
                     }
                 }
             }
@@ -341,7 +344,7 @@ struct TargetDetailView: View {
             hasMore = page.count == pageSize
         } catch {
             guard requestID == currentRequest, !error.isRequestCancellation, !Task.isCancelled else { return }
-            self.error = error.localizedDescription
+            self.error = error.requestErrorMessage
         }
     }
 }
@@ -364,7 +367,7 @@ struct InboxView: View {
                                 let _: Acknowledgement = try await API.shared.request("/notifications/\(notice.id)/read",method:"POST")
                                 await store.reload()
                                 if let id = notice.target_id { store.open(id) }
-                            } catch { store.error = error.localizedDescription }
+                            } catch { store.error = error.requestErrorMessage }
                         }
                     } label: {
                         Surface {
@@ -383,7 +386,7 @@ struct InboxView: View {
                             do {
                                 let page: [Notice] = try await API.shared.request("/notifications?before=\(store.notices.last?.id ?? Int.max)")
                                 store.notices.append(contentsOf:page); more = page.count == 50
-                            } catch { store.error = error.localizedDescription }
+                            } catch { store.error = error.requestErrorMessage }
                             loading = false
                         }
                     }.disabled(loading)
@@ -429,7 +432,7 @@ struct AccountView: View {
                     Toggle("接收推送告警",isOn:Binding(get:{store.profile?.push_enabled ?? true},set:{ value in
                         Task {
                             do { let _: Acknowledgement = try await API.shared.request("/me/preferences",method:"PUT",body:["push_enabled":value]); store.profile?.push_enabled = value }
-                            catch { store.error = error.localizedDescription }
+                            catch { store.error = error.requestErrorMessage }
                         }
                     }))
                     Button("开启系统通知",systemImage:"bell.badge") { Task { await store.enablePush() } }
@@ -446,7 +449,7 @@ struct AccountView: View {
                             do {
                                 let _: Acknowledgement = try await API.shared.request("/auth/reset-password",method:"POST",body:["old_password":oldPassword,"new_password":newPassword])
                                 store.expire()
-                            } catch { store.error = error.localizedDescription }
+                            } catch { store.error = error.requestErrorMessage }
                             changing = false
                         }
                     }.disabled(changing || oldPassword.isEmpty || newPassword.count < 8)
@@ -461,7 +464,7 @@ struct AccountView: View {
                 Button("永久删除账号",role:.destructive) {
                     Task {
                         do { let _: Acknowledgement = try await API.shared.request("/me",method:"DELETE"); store.expire() }
-                        catch { store.error = error.localizedDescription }
+                        catch { store.error = error.requestErrorMessage }
                     }
                 }
             }

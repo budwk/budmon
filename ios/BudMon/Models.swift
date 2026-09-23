@@ -56,6 +56,23 @@ struct APIError: LocalizedError {
 
 // Swift task cancellation and URLSession cancellation are normal navigation events.
 extension Error {
+    var isTransientConnectionFailure: Bool {
+        let value = self as NSError
+        return value.domain == NSURLErrorDomain &&
+            [NSURLErrorTimedOut, NSURLErrorNetworkConnectionLost].contains(value.code)
+    }
+    var requestErrorMessage: String {
+        let value = self as NSError
+        if value.domain == NSURLErrorDomain {
+            switch value.code {
+            case NSURLErrorTimedOut: return "连接服务器超时，请稍后重试"
+            case NSURLErrorNetworkConnectionLost: return "网络连接中断，请检查网络后重试。"
+            case NSURLErrorNotConnectedToInternet: return "当前无网络连接，请联网后重试。"
+            default: break
+            }
+        }
+        return localizedDescription
+    }
     var isRequestCancellation: Bool {
         if self is CancellationError { return true }
         let value = self as NSError

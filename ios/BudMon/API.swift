@@ -63,7 +63,7 @@ actor API {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if let body { request.httpBody = try JSONSerialization.data(withJSONObject: body) }
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await send(request)
         guard let response = response as? HTTPURLResponse else { throw APIError(message: "服务器响应无效") }
         if (200..<300).contains(response.statusCode) {
             return (try JSONDecoder().decode(T.self, from: data), response.statusCode, "")
@@ -75,6 +75,19 @@ actor API {
         }.joined(separator:"\n")
         let detail = json?["detail"] as? String ?? validation ?? "请求失败（\(response.statusCode)）"
         return (nil, response.statusCode, detail)
+    }
+    private func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        try Task.checkCancellation()
+        do {
+            return try await session.data(for: request)
+        } catch {
+            // A connection can go stale while iOS suspends the app. Only replay reads:
+            // a timed-out write (including token rotation) may already have succeeded.
+            guard request.httpMethod == "GET", error.isTransientConnectionFailure else { throw error }
+            try await Task.sleep(for: .milliseconds(500))
+            try Task.checkCancellation()
+            return try await session.data(for: request)
+        }
     }
     func request<T: Decodable>(_ path: String, method: String = "GET", body: [String: Any]? = nil, authenticated: Bool = true) async throws -> T {
         let attemptedToken = authenticated ? tokens?.token : nil

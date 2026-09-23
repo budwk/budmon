@@ -633,6 +633,51 @@ function ActivityRecords({ userId = null }) {
   </div>;
 }
 
+function UserTargets({ userId }) {
+  const [result, setResult] = useState({ items: [], total: 0 });
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    api.get(`/admin/users/${userId}/targets`, { params: { offset: (page - 1) * 50, limit: 50 } })
+      .then(({ data }) => { if (active) setResult(data); })
+      .catch(error => {
+        if (active) {
+          setResult({ items: [], total: 0 });
+          setError(error.response?.data?.detail || "加载监测目标失败，请重试");
+        }
+      })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [userId, page, refreshKey]);
+
+  return <Space direction="vertical" size={16} className="full">
+    <div className="panel-toolbar">
+      <Text type="secondary">共 {result.total} 个监测目标 · 所有时间均为北京时间</Text>
+      <Button icon={<RefreshCw size={15} />} loading={loading} onClick={() => setRefreshKey(value => value + 1)}>刷新</Button>
+    </div>
+    {error && <Alert type="error" showIcon message={error} />}
+    <Table className="admin-table" rowKey="id" loading={loading} dataSource={result.items}
+      scroll={{ x: 1100 }} locale={{ emptyText: error ? "监测目标加载失败" : "该用户尚未配置监测目标" }}
+      pagination={{ current: page, pageSize: 50, total: result.total, showSizeChanger: false, showTotal: total => `共 ${total} 个`, onChange: setPage }}
+      columns={[
+        { title: "网站名称", dataIndex: "name", width: 160 },
+        { title: "网站地址", dataIndex: "url", width: 280, render: value => <Text style={{ overflowWrap: "anywhere" }} copyable>{value}</Text> },
+        { title: "启用状态", dataIndex: "enabled", width: 100, render: value => <Tag color={value ? "blue" : "default"}>{value ? "启用" : "停用"}</Tag> },
+        { title: "检测状态", dataIndex: "last_status", width: 100, render: value => <Tag color={value === "up" ? "green" : value === "down" ? "red" : "default"}>{value === "up" ? "正常" : value === "down" ? "故障" : "未检测"}</Tag> },
+        { title: "状态码", dataIndex: "last_code", width: 90, render: value => value ?? "-" },
+        { title: "连续失败", dataIndex: "failure_count", width: 90 },
+        { title: "证书剩余", dataIndex: "last_cert_days", width: 100, render: value => value == null ? "-" : `${value} 天` },
+        { title: "最后检测", dataIndex: "last_checked_at", width: 180, render: value => value || "-" },
+      ]} />
+  </Space>;
+}
+
 function UsersPanel() {
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(0);
@@ -641,6 +686,7 @@ function UsersPanel() {
   const [keyword, setKeyword] = useState("");
   const [editing, setEditing] = useState(null);
   const [recordsUser, setRecordsUser] = useState(null);
+  const [targetsUser, setTargetsUser] = useState(null);
   const [form] = Form.useForm();
   async function load() {
     setLoading(true);
@@ -673,8 +719,8 @@ function UsersPanel() {
   return <div className="admin-page">
     <div className="page-heading">
       <div>
-        <Title level={3}>用户权益管理</Title>
-        <Text type="secondary">查看套餐与配额使用情况，并调整用户权益和账号状态。</Text>
+        <Title level={3}>用户管理</Title>
+        <Text type="secondary">查看用户监测目标、活动记录和配额使用情况，并调整用户权益和账号状态。</Text>
       </div>
       <Button icon={<RefreshCw size={16} />} loading={loading} onClick={load}>刷新数据</Button>
     </div>
@@ -687,6 +733,9 @@ function UsersPanel() {
     <Modal title={`${recordsUser?.username || ""} · 活动记录`} open={!!recordsUser} onCancel={()=>setRecordsUser(null)} footer={null} width={1120} destroyOnClose>
       {recordsUser && <ActivityRecords key={recordsUser.id} userId={recordsUser.id} />}
     </Modal>
+    <Modal title={`${targetsUser?.username || ""} · 监测目标`} open={!!targetsUser} onCancel={() => setTargetsUser(null)} footer={null} width={1200} destroyOnClose>
+      {targetsUser && <UserTargets key={targetsUser.id} userId={targetsUser.id} />}
+    </Modal>
     <Card className="management-card">
       <Alert type="info" showIcon message="权益计算规则"
         description="套餐或自定义基础名额，加上 iOS 已购名额即为最终配额。套餐到期后自动回落免费版；退款会扣回对应名额。" />
@@ -695,7 +744,7 @@ function UsersPanel() {
           placeholder="搜索当前页账号" className="user-search" />
         <Text type="secondary">显示 {filteredRows.length} 位用户 · 第 {page + 1} 页</Text>
       </div>
-      <Table className="admin-table users-table" rowKey="id" loading={loading} dataSource={filteredRows} pagination={false} scroll={{ x: 1040 }} columns={[
+      <Table className="admin-table users-table" rowKey="id" loading={loading} dataSource={filteredRows} pagination={false} scroll={{ x: 1160 }} columns={[
         {
           title: "账号",
           width: 210,
@@ -740,8 +789,9 @@ function UsersPanel() {
         {
           title: "操作",
           fixed: "right",
-          width: 190,
+          width: 310,
           render: (_, row) => <Space>
+            <Button onClick={() => setTargetsUser(row)}>监测目标</Button>
             <Button onClick={() => setRecordsUser(row)}>活动记录</Button>
             <Button type="primary" onClick={() => edit(row)}>管理权益</Button>
           </Space>,
@@ -792,7 +842,7 @@ function Shell({ onLogout }) {
     { key: "targets", icon: <Bell size={18} />, label: "监控目标" },
     ...(profile?.role === "admin" ? [
       { key: "settings", icon: <Settings size={18} />, label: "系统配置" },
-      { key: "users", icon: <Users size={18} />, label: "权益管理" },
+      { key: "users", icon: <Users size={18} />, label: "用户管理" },
       { key: "records", icon: <CreditCard size={18} />, label: "购买记录" },
     ] : []),
     { key: "password", icon: <KeyRound size={18} />, label: "重置密码" },

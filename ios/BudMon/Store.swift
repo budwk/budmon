@@ -24,58 +24,63 @@ import OSLog
     var pushToken: String? = UserDefaults.standard.string(forKey:"apnsToken")
     var environment: String { Bundle.main.object(forInfoDictionaryKey:"APNSEnvironment") as? String ?? "sandbox" }
 
+    private let api: API
+
+    init(api: API = .shared) { self.api = api }
+
     func boot() async {
         startTransactionListener()
-        authenticated = await API.shared.hasSession()
-        if authenticated { await reload(); await registerDevice(); await loadPurchases(); await syncPurchases() }
+        authenticated = await api.hasSession()
+        if authenticated { await reload(showErrors: false); await registerDevice(showErrors: false); await loadPurchases(); await syncPurchases(showErrors: false) }
         booting = false
     }
     func login(username: String, password: String, register: Bool) async {
         loading = true
         defer { loading = false }
         do {
-            let result: Tokens = try await API.shared.request(register ? "/auth/register" : "/auth/login", method:"POST", body:["username":username,"password":password],authenticated:false)
-            try await API.shared.save(result)
+            let result: Tokens = try await api.request(register ? "/auth/register" : "/auth/login", method:"POST", body:["username":username,"password":password],authenticated:false)
+            try await api.save(result)
             authenticated = true
             await reload()
             await registerDevice()
             await loadPurchases()
             await syncPurchases()
-        } catch { if !error.isRequestCancellation && !Task.isCancelled { self.error = error.localizedDescription } }
+        } catch { if !error.isRequestCancellation && !Task.isCancelled { self.error = error.requestErrorMessage } }
     }
-    func reload() async {
+    func reload(showErrors: Bool = true) async {
+        guard authenticated, !Task.isCancelled else { return }
         do {
-            async let t: [Target] = API.shared.request("/targets")
-            async let p: Profile = API.shared.request("/me")
-            async let n: [Notice] = API.shared.request("/notifications")
+            async let t: [Target] = api.request("/targets")
+            async let p: Profile = api.request("/me")
+            async let n: [Notice] = api.request("/notifications")
             let result = try await (t,p,n)
-            guard authenticated else { return }
+            guard authenticated, !Task.isCancelled else { return }
             targets = result.0; profile = result.1; notices = result.2
             if deviceRegistered { await refreshPushStatus() }
-        } catch { if !error.isRequestCancellation && !Task.isCancelled { self.error = error.localizedDescription } }
+        } catch { if showErrors && !error.isRequestCancellation && !Task.isCancelled { self.error = error.requestErrorMessage } }
     }
     func enablePush() async {
         do {
             let granted = try await UNUserNotificationCenter.current().requestAuthorization(options:[.alert,.badge,.sound])
             if granted { UIApplication.shared.registerForRemoteNotifications(); pushStatus = "正在注册设备…" }
             else { pushStatus = "通知未授权，请前往系统设置开启" }
-        } catch { if !error.isRequestCancellation && !Task.isCancelled { self.error = error.localizedDescription } }
+        } catch { if !error.isRequestCancellation && !Task.isCancelled { self.error = error.requestErrorMessage } }
     }
-    func registerDevice() async {
+    func registerDevice(showErrors: Bool = true) async {
         guard authenticated, let pushToken else { return }
         do {
-            let _: Acknowledgement = try await API.shared.request("/devices",method:"POST",body:["token":pushToken,"environment":environment])
+            let _: Acknowledgement = try await api.request("/devices",method:"POST",body:["token":pushToken,"environment":environment])
             deviceRegistered = true
             // Query independently: cached profile may predate server APNs configuration,
             // or dashboard loading may have failed before assigning it.
-            let current: Profile = try await API.shared.request("/me")
+            let current: Profile = try await api.request("/me")
             guard authenticated else { return }
             profile = current
             await refreshPushStatus()
         } catch {
-            guard authenticated else { return }
+            guard authenticated, !error.isRequestCancellation, !Task.isCancelled else { return }
             pushStatus = "推送状态查询或设备注册失败，请重试"
-            self.error = error.localizedDescription
+            if showErrors { self.error = error.requestErrorMessage }
         }
     }
     private func refreshPushStatus() async {
@@ -93,15 +98,15 @@ import OSLog
     func logout() async {
         do {
             if let pushToken {
-                let _: Acknowledgement = try await API.shared.request("/devices",method:"DELETE",body:["token":pushToken,"environment":environment])
+                let _: Acknowledgement = try await api.request("/devices",method:"DELETE",body:["token":pushToken,"environment":environment])
             }
-            let _: Acknowledgement = try await API.shared.request("/auth/logout",method:"POST")
+            let _: Acknowledgement = try await api.request("/auth/logout",method:"POST")
             expire()
-        } catch { self.error = "退出未完成：\(error.localizedDescription)。请联网后重试，以解绑推送设备。" }
+        } catch { self.error = "退出未完成：\(error.requestErrorMessage)。请联网后重试，以解绑推送设备。" }
     }
     func expire() {
         try? Keychain.write(nil,key:"tokens")
-        Task { try? await API.shared.clear() }
+        Task { try? await api.clear() }
         deviceRegistered = false; pushStatus = "尚未开启通知"
         purchaseContext = nil; purchaseProduct = nil; purchaseAvailable = false; purchaseMessage = nil
         authenticated = false; profile = nil; targets = []; notices = []; path = []; tab = 0
@@ -112,8 +117,8 @@ import OSLog
             for await result in StoreKit.Transaction.updates {
                 guard let self else { return }
                 guard self.authenticated else { continue }
-                do { try await self.deliverPurchase(result) }
-                catch { self.purchaseMessage = "交易尚未同步：\(error.localizedDescription)" }
+                do { try await self.deliverPurchase(result, showErrors: false) }
+                catch { self.purchaseMessage = "交易尚未同步：\(error.requestErrorMessage)" }
             }
         }
     }
@@ -126,7 +131,7 @@ import OSLog
         purchaseContext = nil
         let accountID = profile?.id
         do {
-            let context: PurchaseContext = try await API.shared.request("/iap/context")
+            let context: PurchaseContext = try await api.request("/iap/context")
             guard authenticated, profile?.id == accountID, !Task.isCancelled else { return }
             Logger(subsystem:"com.budwk.app.budmon", category:"IAP").info("IAP context: enabled=\(context.enabled) product_id=\(context.product_id, privacy:.public)")
             guard context.enabled else {
@@ -150,7 +155,7 @@ import OSLog
             purchaseProduct = product
             purchaseAvailable = true
             purchaseMessage = nil
-        } catch { purchaseMessage = error.localizedDescription }
+        } catch { purchaseMessage = error.requestErrorMessage }
     }
 
     func purchaseSlot() async {
@@ -171,11 +176,11 @@ import OSLog
                 purchaseMessage = "购买状态待确认，请稍后同步购买。"
             }
         } catch {
-            purchaseMessage = "购买未完成同步：\(error.localizedDescription)。如已扣款，请同步未完成购买，无需再次付款。"
+            purchaseMessage = "购买未完成同步：\(error.requestErrorMessage)。如已扣款，请同步未完成购买，无需再次付款。"
         }
     }
 
-    private func deliverPurchase(_ result: VerificationResult<StoreKit.Transaction>) async throws {
+    private func deliverPurchase(_ result: VerificationResult<StoreKit.Transaction>, showErrors: Bool = true) async throws {
         guard case .verified(let transaction) = result else {
             throw APIError(message: "Apple 交易验证未通过")
         }
@@ -184,26 +189,27 @@ import OSLog
             throw APIError(message: "请登录官方服务器的购买账号后重试")
         }
         // Fetch the current token: do not credit a different account after logout/login.
-        let context: PurchaseContext = try await API.shared.request("/iap/context")
+        let context: PurchaseContext = try await api.request("/iap/context")
         guard transaction.appAccountToken == context.app_account_token else {
             throw APIError(message: "请登录购买时使用的 BudMon 账号同步此交易")
         }
-        let response: PurchaseAcknowledgement = try await API.shared.request("/iap/transactions", method: "POST",
+        let response: PurchaseAcknowledgement = try await api.request("/iap/transactions", method: "POST",
             body: ["signed_transaction": result.jwsRepresentation])
         guard response.ok else { throw APIError(message: "服务端尚未确认到账") }
         await transaction.finish()
-        await reload()
+        await reload(showErrors: showErrors)
         purchaseMessage = response.status == "credited" ? "购买已到账，监测名额已更新。" : "此订单已退款或撤销。"
     }
 
-    func syncPurchases() async {
-        guard authenticated else { return }
+    func syncPurchases(showErrors: Bool = true) async {
+        guard authenticated, !Task.isCancelled else { return }
         // Consumables already delivered are stored in the BudMon account, not restored from currentEntitlements.
         for await result in StoreKit.Transaction.unfinished {
-            do { try await deliverPurchase(result) }
-            catch { purchaseMessage = "交易尚未同步：\(error.localizedDescription)" }
+            guard !Task.isCancelled else { return }
+            do { try await deliverPurchase(result, showErrors: showErrors) }
+            catch { purchaseMessage = "交易尚未同步：\(error.requestErrorMessage)" }
         }
-        await reload()
+        await reload(showErrors: showErrors)
     }
 
     func open(_ id: Int) { tab = 0; path = [id] }
